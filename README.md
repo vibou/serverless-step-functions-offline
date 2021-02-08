@@ -1,11 +1,12 @@
 [![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
-[![npm version](https://badge.fury.io/js/serverless-step-functions-offline.svg)](https://badge.fury.io/js/serverless-step-functions-offline)
-[![Known Vulnerabilities](https://snyk.io/test/github/vkkis93/serverless-step-functions-offline/badge.svg?targetFile=package.json)](https://snyk.io/test/github/vkkis93/serverless-step-functions-offline?targetFile=package.json)
-[![Maintainability](https://api.codeclimate.com/v1/badges/b321644ef368976aee12/maintainability)](https://codeclimate.com/github/vkkis93/serverless-step-functions-offline/maintainability)
-[![NPM](https://nodei.co/npm/serverless-step-functions-offline.png)](https://nodei.co/npm/serverless-step-functions-offline/)
+[![npm version](https://badge.fury.io/js/@beforeyoubid/serverless-step-functions-offline.svg)](https://badge.fury.io/js/@beforeyoubid/serverless-step-functions-offline)
+[![Maintainability](https://api.codeclimate.com/v1/badges/b321644ef368976aee12/maintainability)](https://codeclimate.com/github/beforeyoubid/serverless-step-functions-offline/maintainability)
+[![NPM](https://nodei.co/npm/@beforeyoubid/serverless-step-functions-offline.png)](https://nodei.co/npm/@beforeyoubid/serverless-step-functions-offline/)
 
 # serverless-step-functions-offline
-:warning: Version 2.0 with breaking changes see [usage](#usage)  :warning:
+
+![circleci status](https://circleci.com/gh/beforeyoubid/serverless-step-functions-offline.svg?style=shield)
+
 ## Documentation
 
 - [Install](#install)
@@ -20,11 +21,11 @@
 # Install
 Using NPM:
 ```bash
-npm install serverless-step-functions-offline --save-dev
+npm install @beforeyoubid/serverless-step-functions-offline --save-dev
 ```
 or Yarn:
 ```bash
-yarn add serverless-step-functions-offline --dev
+yarn add @beforeyoubid/serverless-step-functions-offline --dev
 ```
 
 # Setup
@@ -33,7 +34,7 @@ Add the plugin to your `serverless.yml`:
 # serverless.yml
 
 plugins:
-  - serverless-step-functions-offline
+  - @beforeyoubid/serverless-step-functions-offline
 ```
 
 To verify that the plugin works, run this in your command line:
@@ -61,7 +62,7 @@ For example:
 service: ServerlessStepPlugin
 frameworkVersion: ">=1.13.0 <2.0.0"
 plugins:
-   - serverless-step-functions-offline
+   - @beforeyoubid/serverless-step-functions-offline
 
 # ...
 
