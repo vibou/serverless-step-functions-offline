@@ -38,9 +38,9 @@ describe('index.js', () => {
   });
 
   describe('Constructor()', () => {
-    it('should have hooks', () => expect(stepFunctionsOfflinePlugin.hooks).not.toHaveLength(0));
+    it('should have hooks', () => expect(Object.keys(stepFunctionsOfflinePlugin.hooks)).not.toHaveLength(0));
 
-    it('should have commands', () => expect(stepFunctionsOfflinePlugin.commands).not.toHaveLength(0));
+    it('should have commands', () => expect(Object.keys(stepFunctionsOfflinePlugin.commands)).not.toHaveLength(0));
   });
 
   describe('#checkVariableInYML', () => {
