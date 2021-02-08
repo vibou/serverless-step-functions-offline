@@ -1,4 +1,3 @@
-'use strict';
 const parse = require('./parse');
 const build = require('./build');
 const _ = require('lodash');

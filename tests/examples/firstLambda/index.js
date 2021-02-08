@@ -1,4 +1,3 @@
-'use strict';
 const Promise = require('bluebird');
 console.log('Loading function One');
 

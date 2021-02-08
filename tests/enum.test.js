@@ -1,4 +1,3 @@
-'use strict';
 const enums = require('../enum');
 
 describe('enum.js', () => {

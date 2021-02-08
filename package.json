@@ -16,7 +16,6 @@
     "lint": "eslint '**/*.{js,jsx}' --quiet"
   },
   "dependencies": {
-    "bluebird": "3.7.2",
     "lodash": "^4.17.15",
     "moment": "2.29.1"
   },

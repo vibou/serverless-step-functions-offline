@@ -1,4 +1,3 @@
-'use strict';
 const Serverless = require('serverless/lib/Serverless');
 const CLI = require('serverless/lib/classes/CLI');
 const StepFunctionsOfflinePlugin = require('../index');
