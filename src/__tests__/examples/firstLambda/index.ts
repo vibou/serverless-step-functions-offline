@@ -1,4 +1,4 @@
-const Promise = require('bluebird');
+import Promise from 'bluebird';
 console.log('Loading function One');
 
 exports.handler = (event, context, callback) => {

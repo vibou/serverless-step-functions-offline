@@ -1,4 +1,4 @@
-const enums = require('../enum');
+import enums from '../enum';
 
 describe('enum.js', () => {
   const supportedComparisonOperator = [
@@ -26,12 +26,12 @@ describe('enum.js', () => {
     it('should have supportedComparisonOperator', () => expect(enums.supportedComparisonOperator).not.toHaveLength(0));
 
     it('should have 16 supportedComparisonOperator', () => {
-      expect(enums.supportedComparisonOperator).to.be.an('array').toEqual(supportedComparisonOperator);
+      expect(enums.supportedComparisonOperator).toEqual(supportedComparisonOperator);
     });
   });
 
   describe('#convertOperator()', () => {
-    it('should have convertOperator', () => expect(enums.convertOperator).not.toHaveLength(0));
+    it('should have convertOperator', () => expect(Object.keys(enums.convertOperator)).not.toHaveLength(0));
 
     describe('#BooleanEquals()', () => {
       it('should BooleanEquals return true', () => {
@@ -178,7 +178,7 @@ describe('enum.js', () => {
     });
 
     describe('#TimestampEquals()', () => {
-      let secondDate = new Date();
+      const secondDate = new Date();
       it('should TimestampEquals return true', () => {
         const result = enums.convertOperator.TimestampEquals(firstDate, firstDate);
         expect(result).toBe(true);
@@ -191,7 +191,7 @@ describe('enum.js', () => {
     });
 
     describe('#TimestampGreaterThan()', () => {
-      let secondDate = new Date();
+      const secondDate = new Date();
       it('should TimestampGreaterThan return true', () => {
         const result = enums.convertOperator.TimestampGreaterThan(secondDate, firstDate);
         expect(result).toBe(true);
@@ -204,7 +204,7 @@ describe('enum.js', () => {
     });
 
     describe('#TimestampGreaterThanEquals()', () => {
-      let secondDate = new Date();
+      const secondDate = new Date();
       it('should TimestampGreaterThanEquals return true', () => {
         const result = enums.convertOperator.TimestampGreaterThanEquals(secondDate, secondDate);
         expect(result).toBe(true);
@@ -217,7 +217,7 @@ describe('enum.js', () => {
     });
 
     describe('#TimestampGreaterThan()', () => {
-      let secondDate = new Date();
+      const secondDate = new Date();
       it('should TimestampGreaterThan return true', () => {
         const result = enums.convertOperator.TimestampLessThan(firstDate, secondDate);
         expect(result).toBe(true);
@@ -230,7 +230,7 @@ describe('enum.js', () => {
     });
 
     describe('#TimestampLessThanEquals()', () => {
-      let secondDate = new Date();
+      const secondDate = new Date();
       it('should TimestampLessThanEquals return true', () => {
         const result = enums.convertOperator.TimestampLessThanEquals(secondDate, secondDate);
         expect(result).toBe(true);

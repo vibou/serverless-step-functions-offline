@@ -1,0 +1,14 @@
+node_modules
+coverage
+.circleci
+.eslintrc
+.babelrc
+.eslintignore
+src/__tests__
+./dist
+.prettierrc
+jest.config.ts
+yarn-error.log
+tsconfig.json
+.codeclimate.yml
+./src/**
