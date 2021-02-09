@@ -1,6 +1,6 @@
 {
   "name": "@beforeyoubid/serverless-step-functions-offline",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "Serverlesss plugin to support step function offline",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,14 +16,19 @@
     "test": "jest --coverage",
     "lint": "eslint '**/*.{ts,tsx,js,jsx}' --quiet",
     "ts": "tsc --noEmit",
-    "build-and-publish": "tsc && npm publish --access public"
+    "build-and-publish": "npm run build && npm publish --access public",
+    "build": "npm run build:types && npm run build:js",
+    "build:types": "tsc --emitDeclarationOnly",
+    "build:js": "babel src/*.ts --out-dir dist --extensions \".ts,.tsx\" --source-maps inline"
   },
   "dependencies": {
     "lodash": "^4.17.15",
     "moment": "2.29.1"
   },
   "devDependencies": {
+    "@babel/cli": "^7.12.13",
     "@babel/core": "^7.12.13",
+    "@babel/plugin-proposal-class-properties": "^7.12.13",
     "@babel/preset-env": "^7.12.13",
     "@babel/preset-typescript": "^7.12.13",
     "@types/jest": "^26.0.20",
@@ -34,6 +39,7 @@
     "@typescript-eslint/eslint-plugin": "^4.14.2",
     "@typescript-eslint/parser": "^4.14.2",
     "asl-types": "^1.2.1",
+    "babel-plugin-add-module-exports": "^1.0.4",
     "eslint": "^7.19.0",
     "eslint-config-prettier": "^7.2.0",
     "eslint-plugin-prettier": "^3.3.1",

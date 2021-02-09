@@ -10,5 +10,9 @@
       }
     ],
     "@babel/preset-typescript"
-  ]
+  ],
+  "plugins": [
+    "add-module-exports",
+    "@babel/plugin-proposal-class-properties"
+ ]
 }
