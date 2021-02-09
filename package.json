@@ -1,6 +1,6 @@
 {
   "name": "@beforeyoubid/serverless-step-functions-offline",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Serverlesss plugin to support step function offline",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -33,6 +33,7 @@
     "@types/serverless": "^1.78.20",
     "@typescript-eslint/eslint-plugin": "^4.14.2",
     "@typescript-eslint/parser": "^4.14.2",
+    "asl-types": "^1.2.1",
     "eslint": "^7.19.0",
     "eslint-config-prettier": "^7.2.0",
     "eslint-plugin-prettier": "^3.3.1",

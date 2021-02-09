@@ -3,13 +3,15 @@ import path from 'path';
 import moment from 'moment';
 import Plugin from 'serverless/classes/Plugin';
 
+import { StateMachine, State, Map, Fail, Succeed, Task, Parallel, Wait, Pass, Choice } from 'asl-types';
+
 import {
-  StateMachine,
+  // StateMachine,
   Options,
   ServerlessWithError,
   ContextObject,
   Failure,
-  StateDefinition,
+  // State,
   Maybe,
   Event,
   Callback,
@@ -19,6 +21,10 @@ import {
   StateValueReturn,
   definitionIsHandler,
   stateIsChoiceConditional,
+  isNotCompletedState,
+  isType,
+  notEmpty,
+  StateMachineBase,
 } from './types';
 import enumList from './enum';
 
@@ -36,16 +42,16 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     [key: string]: string | undefined;
   } = {};
   private cliLog: (str: string) => void;
-  stateDefinition?: StateMachine['definition'];
+  stateDefinition?: StateMachine;
 
   private mapResults: unknown[] = [];
   private eventForParallelExecution?: Event;
   private currentStateName: Maybe<string>;
-  private currentState: Maybe<StateDefinition>;
+  private currentState: Maybe<State>;
   private contextObject: Maybe<ContextObject>;
   private subContextObject: Maybe<ContextObject>;
-  private subStates: StateMachine['definition']['States'] = {};
-  private states: StateMachine['definition']['States'] = {};
+  private subStates: StateMachine['States'] = {};
+  private states: StateMachine['States'] = {};
   private parallelBranch: Maybe<Branch>;
   private eventParallelResult: Event[] = [];
 
@@ -240,7 +246,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     });
   }
 
-  getStateMachine(stateMachineName: string): StateMachine {
+  getStateMachine(stateMachineName: string): StateMachineBase {
     if (
       this.serverless.service.stepFunctions?.stateMachines &&
       stateMachineName in this.serverless.service.stepFunctions.stateMachines
@@ -278,6 +284,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
     return Promise.resolve().then(() => {
       if (!this.stateDefinition?.StartAt) {
+        console.log({ sd: this.stateDefinition });
         throw new Error('Missing `startAt` in definition');
       }
       // if (!this.loadedEventFile) throw new Error('Was unable to load event file');
@@ -289,7 +296,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     });
   }
 
-  buildSubStepWorkFlow(stateDefinition: StateMachine['definition'], event: Event): Promise<any> {
+  buildSubStepWorkFlow(stateDefinition: StateMachine, event: Event): Promise<any> {
     this.cliLog('Building Iterator StepWorkFlow');
     this.subContextObject = this.createContextObject(stateDefinition.States);
     this.subStates = stateDefinition.States;
@@ -303,7 +310,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       });
   }
 
-  process(state: StateDefinition, stateName: string, event: Event): void | Promise<void> | Callback {
+  process(state: State, stateName: string, event: Event): void | Promise<void> | Callback {
     if (state && state.Type === 'Parallel') {
       this.eventForParallelExecution = event;
     }
@@ -323,7 +330,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     }
   }
 
-  _findStep(currentState: StateDefinition, currentStateName: string): StateValueReturn {
+  _findStep(currentState: State, currentStateName: string): StateValueReturn {
     // it means end of states
     if (!currentState) {
       this.currentState = null;
@@ -348,178 +355,206 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     }
   }
 
-  _states(currentState: StateDefinition, currentStateName: string): StateValueReturn {
-    switch (currentState.Type) {
-      case 'Map':
-        return {
-          f: (event: Event): Promise<void> => {
-            const items = _.get(event, currentState.ItemsPath?.replace(/^\$\./, '') ?? '', []);
-            const mapItems: unknown[] = _.clone(items);
-            this.mapResults = [];
+  _handleMap(currentState: Map): StateValueReturn {
+    return {
+      f: (event: Event): Promise<void> => {
+        const items = _.get(event, currentState.ItemsPath?.replace(/^\$\./, '') ?? '', []);
+        const mapItems: unknown[] = _.clone(items);
+        this.mapResults = [];
 
-            const processNextItem = (): Promise<void> => {
-              const item = mapItems.shift();
+        const processNextItem = (): Promise<void> => {
+          const item = mapItems.shift();
 
-              if (item) {
-                const parseValue = (value: string) => {
-                  if (value === '$$.Map.Item.Value') {
-                    return item;
+          if (item) {
+            const parseValue = (value: string) => {
+              if (value === '$$.Map.Item.Value') {
+                return item;
+              }
+
+              if (/^\$\./.test(value)) {
+                return _.get(event, value.replace(/^\$\./, ''));
+              }
+            };
+
+            const params = currentState.Parameters
+              ? Object.keys(currentState.Parameters).reduce((acc: { [key: string]: unknown }, key) => {
+                  if (/\.\$$/.test(key) && currentState.Parameters) {
+                    acc[key.replace(/\.\$$/, '')] = parseValue(currentState.Parameters[key].toString());
                   }
 
-                  if (/^\$\./.test(value)) {
-                    return _.get(event, value.replace(/^\$\./, ''));
-                  }
-                };
+                  return acc;
+                }, {})
+              : {};
 
-                const params = currentState.Parameters
-                  ? Object.keys(currentState.Parameters).reduce((acc: { [key: string]: unknown }, key) => {
-                      if (/\.\$$/.test(key) && currentState.Parameters) {
-                        acc[key.replace(/\.\$$/, '')] = parseValue(currentState.Parameters[key].toString());
-                      }
-
-                      return acc;
-                    }, {})
-                  : {};
-
-                if (currentState?.Iterator) {
-                  return this.buildSubStepWorkFlow(currentState.Iterator, params).then(() => processNextItem());
-                }
-              }
-
-              return Promise.resolve();
-            };
-
-            return processNextItem().then(() => {
-              this.subContextObject = null;
-              this.subStates = {};
-
-              if (currentState.ResultPath) {
-                _.set(event, currentState.ResultPath.replace(/\$\./, ''), this.mapResults);
-              }
-
-              this.mapResults = [];
-
-              if (currentState.Next) {
-                this.process(this.states[currentState.Next], currentState.Next, event);
-              }
-              return Promise.resolve();
-            });
-          },
-        };
-
-      case 'Task': // just push task to general array
-        //before each task restore global default env variables
-        process.env = Object.assign({}, this.environmentVariables);
-        const functionName = this.variables?.[currentStateName];
-        const f = functionName ? this.functions[functionName] : null;
-        if (f === undefined || f === null) {
-          this.cliLog(`Function "${currentStateName}" does not presented in serverless manifest`);
-          throw new Error(`Function "${currentStateName}" does not presented in serverless manifest`);
-        }
-        if (!definitionIsHandler(f)) return;
-        const { handler, filePath } = this._findFunctionPathAndHandler(f.handler);
-        // if function has additional variables - attach it to function
-        if (f.environment) {
-          process.env = _.extend(process.env, f.environment);
-        }
-        return {
-          name: currentStateName,
-          f: () => import(path.join(this.location, filePath))[handler],
-        };
-      case 'Parallel': // look through branches and push all of them
-        this.eventParallelResult = [];
-        _.forEach(currentState.Branches, branch => {
-          this.parallelBranch = branch;
-          return this.eventForParallelExecution
-            ? this.process(branch.States[branch.StartAt], branch.StartAt, this.eventForParallelExecution)
-            : null;
-        });
-        if (currentState.Next) {
-          this.process(this.states[currentState.Next], currentState.Next, this.eventParallelResult);
-        }
-        delete this.parallelBranch;
-        this.eventParallelResult = [];
-        return;
-      case 'Choice':
-        //push all choices. but need to store information like
-        // 1) on which variable need to look: ${variable}
-        // 2) find operator: ${condition}
-        // 3) find function which will check data: ${checkFunction}
-        // 4) value which we will use in order to compare data: ${compareWithValue}
-        // 5) find target function - will be used if condition true: ${f}
-        const choiceConditional: ChoiceConditional = {
-          choice: [],
-        };
-        _.forEach(currentState.Choices, choice => {
-          const variable = choice.Variable?.split('$.')[1];
-          const condition = _.pick(choice, enumList.supportedComparisonOperator);
-          if (!condition) {
-            this.cliLog(`Sorry! At this moment we don't support operator '${choice}'`);
-            process.exit(1);
+            if (currentState?.Iterator) {
+              return this.buildSubStepWorkFlow(currentState.Iterator, params).then(() => processNextItem());
+            }
           }
-          const operator = Object.keys(condition)[0];
-          const checkFunction = enumList.convertOperator[operator];
-          const compareWithValue = condition[operator];
 
-          if (variable) {
-            const choiceObj: ChoiceInstance = {
-              variable,
-              condition,
-              checkFunction,
-              compareWithValue,
-              choiceFunction: choice.Next,
-            };
-            choiceConditional.choice.push(choiceObj);
+          return Promise.resolve();
+        };
+
+        return processNextItem().then(() => {
+          this.subContextObject = null;
+          this.subStates = {};
+
+          if (currentState.ResultPath) {
+            _.set(event, currentState.ResultPath.replace(/\$\./, ''), this.mapResults);
           }
-        });
-        // if exists default function - store it
-        if (currentState.Default) {
-          choiceConditional.defaultFunction = currentState.Default;
-        }
-        return choiceConditional;
-      case 'Wait':
-        // Wait State
-        // works with parameter: seconds, timestamp, timestampPath, secondsPath;
-        return {
-          waitState: true,
-          f: event => {
-            const waitTimer = this._waitState(event, currentState, currentStateName);
-            this.cliLog(`Wait function ${currentStateName} - please wait ${waitTimer} seconds`);
-            return (arg1, arg2, cb) => {
-              setTimeout(() => {
-                cb(null, event);
-              }, waitTimer * 1000);
-            };
-          },
-        };
-      case 'Pass':
-        return {
-          f: event => {
-            return (arg1, arg2, cb) => {
-              this.cliLog('!!! Pass State !!!');
-              const eventResult = this._passStateFields(currentState, event);
-              cb(null, eventResult);
-            };
-          },
-        };
 
-      case 'Succeed':
-        this.cliLog('Succeed');
-        return Promise.resolve('Succeed');
-      case 'Fail':
-        const obj: Failure = {};
-        if (currentState.Cause) obj.Cause = currentState.Cause;
-        if (currentState.Error) obj.Error = currentState.Error;
-        this.cliLog('Fail');
-        if (!_.isEmpty(obj)) {
-          this.cliLog(JSON.stringify(obj));
-        }
-        return Promise.resolve('Fail');
+          this.mapResults = [];
+
+          if (currentState.Next) {
+            this.process(this.states[currentState.Next], currentState.Next, event);
+          }
+          return Promise.resolve();
+        });
+      },
+    };
+  }
+
+  _handleTask(currentState: Task, stateName: string): StateValueReturn {
+    // just push task to general array
+    //before each task restore global default env variables
+    process.env = Object.assign({}, this.environmentVariables);
+    const functionName = this.variables?.[stateName];
+    const f = functionName ? this.functions[functionName] : null;
+    if (f === undefined || f === null) {
+      this.cliLog(`Function "${stateName}" does not presented in serverless manifest`);
+      throw new Error(`Function "${stateName}" does not presented in serverless manifest`);
     }
+    if (!definitionIsHandler(f)) return;
+    const { handler, filePath } = this._findFunctionPathAndHandler(f.handler);
+    // if function has additional variables - attach it to function
+    if (f.environment) {
+      process.env = _.extend(process.env, f.environment);
+    }
+    return {
+      name: stateName,
+      f: () => import(path.join(this.location, filePath))[handler],
+    };
+  }
+
+  _handleParallel(currentState: Parallel): StateValueReturn {
+    this.eventParallelResult = [];
+    _.forEach(currentState.Branches, branch => {
+      this.parallelBranch = branch;
+      return this.eventForParallelExecution
+        ? this.process(branch.States[branch.StartAt], branch.StartAt, this.eventForParallelExecution)
+        : null;
+    });
+    if (currentState.Next) {
+      this.process(this.states[currentState.Next], currentState.Next, this.eventParallelResult);
+    }
+    delete this.parallelBranch;
+    this.eventParallelResult = [];
     return;
   }
 
-  _passStateFields(currentState: StateDefinition, event: Event): Event {
+  _handleChoice(currentState: Choice): ChoiceConditional {
+    //push all choices. but need to store information like
+    // 1) on which variable need to look: ${variable}
+    // 2) find operator: ${condition}
+    // 3) find function which will check data: ${checkFunction}
+    // 4) value which we will use in order to compare data: ${compareWithValue}
+    // 5) find target function - will be used if condition true: ${f}
+    const choiceConditional: ChoiceConditional = {
+      choice: [],
+    };
+    _.forEach(currentState.Choices, choice => {
+      const variable = choice.Variable?.split('$.')[1];
+      const condition = _.pick(choice, enumList.supportedComparisonOperator);
+      if (!condition) {
+        this.cliLog(`Sorry! At this moment we don't support operator '${choice}'`);
+        process.exit(1);
+      }
+      const operator = Object.keys(condition)[0];
+      const checkFunction = enumList.convertOperator[operator];
+      const compareWithValue = condition[operator];
+
+      if (variable) {
+        const choiceObj: ChoiceInstance = {
+          variable,
+          condition,
+          checkFunction,
+          compareWithValue,
+          choiceFunction: choice.Next,
+        };
+        choiceConditional.choice.push(choiceObj);
+      }
+    });
+    // if exists default function - store it
+    if (currentState.Default) {
+      choiceConditional.defaultFunction = currentState.Default;
+    }
+    return choiceConditional;
+  }
+
+  _handleWait(currentState: Wait, stateName: string): StateValueReturn {
+    // Wait State
+    // works with parameter: seconds, timestamp, timestampPath, secondsPath;
+    return {
+      waitState: true,
+      f: event => {
+        const waitTimer = this._waitState(event, currentState, stateName);
+        this.cliLog(`Wait function ${stateName} - please wait ${waitTimer} seconds`);
+        return (arg1, arg2, cb) => {
+          setTimeout(() => {
+            cb(null, event);
+          }, waitTimer * 1000);
+        };
+      },
+    };
+  }
+
+  _handlePass(currentState: Pass): StateValueReturn {
+    return {
+      f: event => {
+        return (arg1, arg2, cb) => {
+          this.cliLog('!!! Pass State !!!');
+          const eventResult = this._passStateFields(currentState, event);
+          cb(null, eventResult);
+        };
+      },
+    };
+  }
+
+  _states(currentState: State, currentStateName: string): StateValueReturn {
+    if (isType('Map')<Map>(currentState)) {
+      return this._handleMap(currentState);
+    }
+    if (isType('Task')<Task>(currentState)) {
+      return this._handleTask(currentState, currentStateName);
+    }
+    if (isType('Parallel')<Parallel>(currentState)) {
+      return this._handleParallel(currentState); // look through branches and push all of them
+    }
+    if (isType('Choice')<Choice>(currentState)) {
+      return this._handleChoice(currentState);
+    }
+    if (isType('Wait')<Wait>(currentState)) {
+      return this._handleWait(currentState, currentStateName);
+    }
+    if (isType('Pass')<Pass>(currentState)) {
+      return this._handlePass(currentState);
+    }
+    if (isType('Fail')<Fail>(currentState)) {
+      const obj: Failure = {};
+      if (currentState.Cause) obj.Cause = currentState.Cause;
+      if (currentState.Error) obj.Error = currentState.Error;
+      this.cliLog('Fail');
+      if (!_.isEmpty(obj)) {
+        this.cliLog(JSON.stringify(obj));
+      }
+      return Promise.resolve('Fail');
+    }
+    if (isType('Succeed')<Succeed>(currentState)) {
+      this.cliLog('Succeed');
+      return Promise.resolve('Succeed');
+    }
+  }
+
+  _passStateFields(currentState: Pass, event: Event): Event {
     if (!currentState.ResultPath) {
       return currentState.Result || event;
     } else {
@@ -556,7 +591,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     }
   }
 
-  _waitState(event: Event, currentState: StateDefinition, currentStateName: string): number {
+  _waitState(event: Event, currentState: State, currentStateName: string): number {
     let waitTimer = 0,
       targetTime,
       timeDiff;
@@ -603,14 +638,18 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return waitTimer;
   }
 
-  createContextObject(states: StateMachine['definition']['States']): ContextObject {
+  createContextObject(states: StateMachine['States']): ContextObject {
     const cb = (err: Error | undefined | null, result?: Event) => {
       // return new Promise((resolve, reject) => {
       if (err) {
         throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
       }
+      if (!notEmpty(this.currentState)) {
+        return;
+      }
       this.executionLog(`~~~~~~~~~~~~~~~~~~~~~~~~~~~ ${this.currentStateName} finished ~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
       let state = states;
+      if (!isNotCompletedState(this.currentState)) return;
       if (this.parallelBranch && this.parallelBranch.States) {
         state = this.parallelBranch.States;
         if (!this.currentState?.Next) this.eventParallelResult.push(result ?? {}); // it means the end of execution of branch

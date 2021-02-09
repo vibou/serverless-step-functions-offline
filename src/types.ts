@@ -2,40 +2,31 @@ import Serverless from 'serverless';
 import PluginManager from 'serverless/classes/PluginManager';
 import Service from 'serverless/classes/Service';
 
+import { StateMachine, Choice, State, Parallel, Task, Map, Wait } from 'asl-types';
+
 // from https://stackoverflow.com/a/49725198/3296811
 type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<keyof T, Keys>> &
   {
     [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>;
   }[Keys];
 
-export type StateMachine = {
-  definition: {
-    Comment: string;
-    StartAt: string;
-    States: {
-      [key: string]: StateDefinition;
-    };
-  };
+export type StateMachineBase = {
+  definition: StateMachine;
 };
 
 export type Maybe<T> = null | undefined | T;
 
 export type Event = Record<string, any>;
 
-export type Choice = {
-  Next?: string;
-  Variable?: string;
-  NumericGreaterThanEquals?: number;
-  NumericLessThan?: number;
-  NumericEquals?: number;
-  BooleanEquals?: boolean;
-  StringEquals?: string;
-  StringGreaterThan?: string;
-  StringGreaterThanEquals?: string;
-  StringLessThan?: string;
-  StringLessThanEquals?: string;
-  And?: Choice[];
-  Not?: Choice;
+export type NotCompletedState = Parallel | Task | Map | Wait | Choice;
+
+export const isNotCompletedState = (state: State): state is NotCompletedState => {
+  if (isType('Parallel')<Parallel>(state)) return true;
+  if (isType('Task')<Task>(state)) return true;
+  if (isType('Map')<Map>(state)) return true;
+  if (isType('Wait')<Wait>(state)) return true;
+  if (isType('Choice')<Choice>(state)) return true;
+  return false;
 };
 
 export type StateValueReturn = void | Promise<'Fail' | 'Succeed'> | StateHandler | ChoiceConditional;
@@ -53,7 +44,15 @@ export type ChoiceConditional = {
   defaultFunction?: string;
 };
 
-export type Branch = StateMachine['definition'];
+export type Branch = StateMachine;
+
+export const notEmpty = <TValue>(value: Maybe<TValue>): value is TValue => value !== null && value !== undefined;
+
+interface StateType {
+  Type: string;
+}
+
+export const isType = (type: string) => <T extends StateType>(state: State | T): state is T => state.Type === type;
 
 export const definitionIsHandler = (
   value: Maybe<Serverless.FunctionDefinitionHandler | Serverless.FunctionDefinitionImage>
@@ -61,26 +60,6 @@ export const definitionIsHandler = (
 
 export const stateIsChoiceConditional = (value: Maybe<ChoiceConditional | StateHandler>): value is ChoiceConditional =>
   Object.prototype.hasOwnProperty.call(value, 'choice');
-
-export type StateDefinition = {
-  Type: string;
-  Resource: string;
-  ItemsPath?: string;
-  Parameters?: {
-    [key: string]: string | number;
-  };
-  Iterator?: StateMachine['definition'];
-  Next?: string;
-  End?: boolean;
-  ErrorEquals?: string[];
-  ResultPath?: string;
-  Choices: Choice[];
-  Result?: Event;
-  Default?: string;
-  Branches?: Branch[];
-  Cause?: string;
-  Error?: string;
-};
 
 export type Failure = {
   Cause?: unknown;
@@ -141,7 +120,7 @@ export type ServerlessWithError = Serverless & {
     stepFunctions?: {
       activities?: [];
       stateMachines?: {
-        [key: string]: StateMachine;
+        [key: string]: StateMachineBase;
       };
     };
   };
