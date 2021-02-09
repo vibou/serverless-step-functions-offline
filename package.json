@@ -1,8 +1,9 @@
 {
   "name": "@beforeyoubid/serverless-step-functions-offline",
-  "version": "2.1.4",
+  "version": "2.2.0",
   "description": "Serverlesss plugin to support step function offline",
-  "main": "src/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bugs": {
     "url": "https://github.com/beforeyoubid/serverless-step-functions-offline/issues"
   },
@@ -14,7 +15,8 @@
   "scripts": {
     "test": "jest",
     "lint": "eslint '**/*.{ts,tsx,js,jsx}' --quiet",
-    "ts": "tsc --noEmit"
+    "ts": "tsc --noEmit",
+    "build-and-publish": "tsc && npm publish --access public"
   },
   "dependencies": {
     "lodash": "^4.17.15",
@@ -52,5 +54,8 @@
     "step functions",
     "serverless-step-functions-offline"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "files": [
+    "dist/**/*"
+  ]
 }
