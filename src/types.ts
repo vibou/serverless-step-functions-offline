@@ -67,16 +67,17 @@ export type Failure = {
 };
 
 export type Callback = (event, context: ContextObject, done: ContextObject['cb']) => void;
+export type AsyncCallback = (event, context: ContextObject, done?: ContextObject['cb']) => Promise<void | Event>;
 
 export type StateHandler = {
   waitState?: boolean;
   name?: string;
-  f: (event: Event) => Callback | Promise<void>;
+  f: (event: Event) => Callback | Promise<void | AsyncCallback>;
   choice?: Choice;
 };
 
 export type ContextObject = {
-  cb: (err: Maybe<Error>, result: Event) => void | Callback | Promise<void>;
+  cb: (err: Maybe<Error>, result?: Event) => void | Callback | Promise<void | Callback>;
   done: ContextObject['cb'];
   succeed: (result: Event) => void;
   fail: (err: Error) => void;

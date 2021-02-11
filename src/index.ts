@@ -15,6 +15,7 @@ import {
   Maybe,
   Event,
   Callback,
+  AsyncCallback,
   Branch,
   ChoiceInstance,
   ChoiceConditional,
@@ -279,38 +280,43 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   buildStepWorkFlow(): Promise<void | Callback> {
     this.cliLog('Building StepWorkFlow');
     if (!this.stateDefinition) throw new Error('Missing state definition');
-    this.contextObject = this.createContextObject(this.stateDefinition.States);
+    this.contextObject = this.createContextObject(this.stateDefinition.States, false);
     this.states = this.stateDefinition.States;
 
     return Promise.resolve().then(() => {
       if (!this.stateDefinition?.StartAt) {
-        console.log({ sd: this.stateDefinition });
         throw new Error('Missing `startAt` in definition');
       }
       // if (!this.loadedEventFile) throw new Error('Was unable to load event file');
       return this.process(
         this.states[this.stateDefinition.StartAt],
         this.stateDefinition.StartAt,
-        this.loadedEventFile ?? {}
+        this.loadedEventFile ?? {},
+        false
       );
     });
   }
 
-  buildSubStepWorkFlow(stateDefinition: StateMachine, event: Event): Promise<any> {
+  async buildSubStepWorkFlow(
+    stateDefinition: StateMachine,
+    event: Event
+  ): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building Iterator StepWorkFlow');
-    this.subContextObject = this.createContextObject(stateDefinition.States);
-    this.subStates = stateDefinition.States;
+    this.subContextObject = this.createContextObject(stateDefinition.States, true);
 
-    return Promise.resolve()
-      .then(
-        () => this.subStates && this.process(this.subStates[stateDefinition.StartAt], stateDefinition.StartAt, event)
-      )
-      .catch(err => {
-        throw err;
-      });
+    if (!stateDefinition.States) return;
+    const state = stateDefinition.States[stateDefinition.StartAt];
+    const result = await this.process(state, stateDefinition.StartAt, event, true);
+    this.subContextObject = null;
+    return result;
   }
 
-  process(state: State, stateName: string, event: Event): void | Promise<void> | Callback {
+  process(
+    state: State,
+    stateName: string,
+    event: Event,
+    isSubContext: boolean
+  ): void | Promise<void | Callback> | Callback {
     if (state && state.Type === 'Parallel') {
       this.eventForParallelExecution = event;
     }
@@ -326,7 +332,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     if (stateIsChoiceConditional(data) && data.choice) {
       return this._runChoice(data, event);
     } else if (!stateIsChoiceConditional(data)) {
-      return this._run(data.f(event), event);
+      return this._run(data.f(event), event, isSubContext);
     }
   }
 
@@ -342,14 +348,32 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return this._states(currentState, currentStateName);
   }
 
-  _run(func: Callback | Promise<void>, event: Event): void | Promise<void> | Callback {
+  _run(
+    func: Callback | Promise<void | AsyncCallback>,
+    event: Event,
+    isSubContext: boolean
+  ): void | Promise<void | Callback> | Callback {
     if (!func) return; // end of states
     this.executionLog(`~~~~~~~~~~~~~~~~~~~~~~~~~~~ ${this.currentStateName} started ~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
 
-    const contextObject = this.subContextObject || this.contextObject;
+    const contextObject = isSubContext ? this.subContextObject : this.contextObject;
     if (contextObject) {
       if (func instanceof Promise) {
-        return func;
+        return func.then(async mod => {
+          if (!mod) return;
+          let res;
+          let err;
+          const done = (error, val) => {
+            res = val;
+            err = error;
+          };
+          const functionRes = await mod(event, contextObject, done);
+          if (functionRes) res = functionRes;
+          try {
+            if (typeof res === 'string') res = JSON.parse(res);
+          } catch (err) {}
+          if (res) return contextObject.done(err, res || {});
+        });
       }
       return func(event, contextObject, contextObject.done);
     }
@@ -357,7 +381,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
   _handleMap(currentState: Map): StateValueReturn {
     return {
-      f: (event: Event): Promise<void> => {
+      f: (event: Event): Promise<void | AsyncCallback> => {
         const items = _.get(event, currentState.ItemsPath?.replace(/^\$\./, '') ?? '', []);
         const mapItems: unknown[] = _.clone(items);
         this.mapResults = [];
@@ -376,7 +400,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
               }
             };
 
-            const params = currentState.Parameters
+            const newEvent = currentState.Parameters
               ? Object.keys(currentState.Parameters).reduce((acc: { [key: string]: unknown }, key) => {
                   if (/\.\$$/.test(key) && currentState.Parameters) {
                     acc[key.replace(/\.\$$/, '')] = parseValue(currentState.Parameters[key].toString());
@@ -386,18 +410,13 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
                 }, {})
               : {};
 
-            if (currentState?.Iterator) {
-              return this.buildSubStepWorkFlow(currentState.Iterator, params).then(() => processNextItem());
-            }
+            return this.buildSubStepWorkFlow(currentState.Iterator, newEvent).then(processNextItem);
           }
 
           return Promise.resolve();
         };
 
-        return processNextItem().then(() => {
-          this.subContextObject = null;
-          this.subStates = {};
-
+        return processNextItem().then(async () => {
           if (currentState.ResultPath) {
             _.set(event, currentState.ResultPath.replace(/\$\./, ''), this.mapResults);
           }
@@ -405,7 +424,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           this.mapResults = [];
 
           if (currentState.Next) {
-            this.process(this.states[currentState.Next], currentState.Next, event);
+            await this.process(this.states[currentState.Next], currentState.Next, event, true);
           }
           return Promise.resolve();
         });
@@ -431,7 +450,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     }
     return {
       name: stateName,
-      f: () => import(path.join(this.location, filePath))[handler],
+      f: () => import(path.join(this.location, filePath)).then(mod => mod[handler]),
     };
   }
 
@@ -440,11 +459,11 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     _.forEach(currentState.Branches, branch => {
       this.parallelBranch = branch;
       return this.eventForParallelExecution
-        ? this.process(branch.States[branch.StartAt], branch.StartAt, this.eventForParallelExecution)
+        ? this.process(branch.States[branch.StartAt], branch.StartAt, this.eventForParallelExecution, true)
         : null;
     });
     if (currentState.Next) {
-      this.process(this.states[currentState.Next], currentState.Next, this.eventParallelResult);
+      this.process(this.states[currentState.Next], currentState.Next, this.eventParallelResult, false);
     }
     delete this.parallelBranch;
     this.eventParallelResult = [];
@@ -568,7 +587,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     }
   }
 
-  _runChoice(data: ChoiceConditional, result: Event): void | Promise<void> | Callback {
+  _runChoice(data: ChoiceConditional, result: Event): void | Promise<void | Callback> | Callback {
     let existsAnyMatches = false;
     if (!data?.choice) return;
 
@@ -581,13 +600,13 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         const isConditionTrue = choice.checkFunction(functionResultValue, choice.compareWithValue);
         if (isConditionTrue && choice.choiceFunction) {
           existsAnyMatches = true;
-          return this.process(this.states[choice.choiceFunction], choice.choiceFunction, result);
+          return this.process(this.states[choice.choiceFunction], choice.choiceFunction, result, true);
         }
       }
     });
     if (!existsAnyMatches && data.defaultFunction) {
       const fName = data.defaultFunction;
-      return this.process(this.states[fName], fName, result);
+      return this.process(this.states[fName], fName, result, false);
     }
   }
 
@@ -638,15 +657,12 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return waitTimer;
   }
 
-  createContextObject(states: StateMachine['States']): ContextObject {
-    const cb = (err: Error | undefined | null, result?: Event) => {
-      // return new Promise((resolve, reject) => {
+  createContextObject(states: StateMachine['States'], isSubContext: boolean): ContextObject {
+    const cb = (err: Maybe<Error>, result?: Event) => {
       if (err) {
         throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
       }
-      if (!notEmpty(this.currentState)) {
-        return;
-      }
+      if (!notEmpty(this.currentState)) return;
       this.executionLog(`~~~~~~~~~~~~~~~~~~~~~~~~~~~ ${this.currentStateName} finished ~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
       let state = states;
       if (!isNotCompletedState(this.currentState)) return;
@@ -659,10 +675,8 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         this.mapResults.push(result);
       }
       if (this.currentState?.Next) {
-        this.process(state[this.currentState.Next], this.currentState.Next, result ?? {});
+        return this.process(state[this.currentState.Next], this.currentState.Next, result ?? {}, isSubContext);
       }
-      // return resolve();
-      // });
     };
 
     return {

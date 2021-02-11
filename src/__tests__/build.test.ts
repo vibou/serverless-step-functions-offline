@@ -1,6 +1,6 @@
 import setup from './setup';
 
-const { stepFunctionsOfflinePlugin } = setup();
+const { stepFunctionsOfflinePlugin, StepFunctionsOfflinePlugin, serverless } = setup();
 
 describe('build.js', () => {
   describe('#findFunctionsPathAndHandler()', () => {
@@ -19,11 +19,14 @@ describe('build.js', () => {
       }
     });
 
-    it('should throw err - goody', async () => {
-      stepFunctionsOfflinePlugin.variables = { FirstLambda: 'firstLambda' };
-      await stepFunctionsOfflinePlugin.hooks[global['hooks'].findState]();
-      await stepFunctionsOfflinePlugin.hooks[global['hooks'].loadEventFile]();
-      await stepFunctionsOfflinePlugin.hooks[global['hooks'].buildStepWorkFlow]();
+    it('should not throw err', async () => {
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, {
+        ...global['options'],
+      });
+      SFOP.variables = { FirstLambda: 'firstLambda' };
+      await SFOP.hooks[global['hooks'].findState]();
+      await SFOP.hooks[global['hooks'].loadEventFile]();
+      await SFOP.hooks[global['hooks'].buildStepWorkFlow]();
     });
   });
 
