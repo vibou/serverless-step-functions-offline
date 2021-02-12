@@ -77,6 +77,7 @@ export type StateHandler = {
 };
 
 export type ContextObject = {
+  attempt: number;
   cb: (err: Maybe<Error>, result?: Event) => void | Callback | Promise<void | Callback>;
   done: ContextObject['cb'];
   succeed: (result: Event) => void;
