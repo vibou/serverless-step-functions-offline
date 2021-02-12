@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import enums from '../enum';
 
 describe('enum.js', () => {

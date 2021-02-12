@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import Serverless from 'serverless/lib/Serverless';
 import CLI from 'serverless/lib/classes/CLI';
 import { ServerlessWithError } from '../types';
@@ -18,8 +19,8 @@ export default function setup(): {
     },
   };
   return {
-    serverless,
+    serverless: serverless as any,
     StepFunctionsOfflinePlugin,
-    stepFunctionsOfflinePlugin: new StepFunctionsOfflinePlugin(serverless, global['options']),
+    stepFunctionsOfflinePlugin: new StepFunctionsOfflinePlugin(serverless as any, global['options']),
   };
 }
