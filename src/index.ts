@@ -29,6 +29,8 @@ import {
 } from './types';
 import enumList from './enum';
 
+const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
+
 export default class StepFunctionsOfflinePlugin implements Plugin {
   private location: string;
 
@@ -277,24 +279,21 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return { handler: handlerName, filePath };
   }
 
-  buildStepWorkFlow(): Promise<void | Callback> {
+  buildStepWorkFlow(): ReturnType<StepFunctionsOfflinePlugin['process']> {
     this.cliLog('Building StepWorkFlow');
     if (!this.stateDefinition) throw new Error('Missing state definition');
-    this.contextObject = this.createContextObject(this.stateDefinition.States, false);
+    const event = this.loadedEventFile ?? {};
+    if (!this.stateDefinition?.StartAt) {
+      throw new Error('Missing `startAt` in definition');
+    }
+    this.contextObject = this.createContextObject(
+      this.stateDefinition.States,
+      this.stateDefinition.StartAt,
+      event,
+      false
+    );
     this.states = this.stateDefinition.States;
-
-    return Promise.resolve().then(() => {
-      if (!this.stateDefinition?.StartAt) {
-        throw new Error('Missing `startAt` in definition');
-      }
-      // if (!this.loadedEventFile) throw new Error('Was unable to load event file');
-      return this.process(
-        this.states[this.stateDefinition.StartAt],
-        this.stateDefinition.StartAt,
-        this.loadedEventFile ?? {},
-        false
-      );
-    });
+    return this.process(this.states[this.stateDefinition.StartAt], this.stateDefinition.StartAt, event, false);
   }
 
   async buildSubStepWorkFlow(
@@ -302,7 +301,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     event: Event
   ): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building Iterator StepWorkFlow');
-    this.subContextObject = this.createContextObject(stateDefinition.States, true);
+    this.subContextObject = this.createContextObject(stateDefinition.States, stateDefinition.StartAt, event, true);
 
     if (!stateDefinition.States) return;
     const state = stateDefinition.States[stateDefinition.StartAt];
@@ -363,16 +362,20 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           if (!mod) return;
           let res;
           let err;
-          const done = (error, val) => {
-            res = val;
-            err = error;
-          };
-          const functionRes = await mod(event, contextObject, done);
-          if (functionRes) res = functionRes;
           try {
-            if (typeof res === 'string') res = JSON.parse(res);
-          } catch (err) {}
-          if (res) return contextObject.done(err, res || {});
+            const done = (e, val) => {
+              res = val;
+              err = e;
+            };
+            const functionRes = await mod(event, contextObject, done);
+            if (functionRes) res = functionRes;
+            try {
+              if (typeof res === 'string') res = JSON.parse(res);
+            } catch (err) {}
+          } catch (error) {
+            err = error;
+          }
+          return contextObject.done(err, res || {});
         });
       }
       return func(event, contextObject, contextObject.done);
@@ -514,14 +517,11 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     // works with parameter: seconds, timestamp, timestampPath, secondsPath;
     return {
       waitState: true,
-      f: event => {
+      f: async event => {
         const waitTimer = this._waitState(event, currentState, stateName);
         this.cliLog(`Wait function ${stateName} - please wait ${waitTimer} seconds`);
-        return (arg1, arg2, cb) => {
-          setTimeout(() => {
-            cb(null, event);
-          }, waitTimer * 1000);
-        };
+        await delay(waitTimer);
+        return (e, context, done) => done(null, e || event);
       },
     };
   }
@@ -657,12 +657,43 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return waitTimer;
   }
 
-  createContextObject(states: StateMachine['States'], isSubContext: boolean): ContextObject {
+  createContextObject(
+    states: StateMachine['States'],
+    name: string,
+    originalEvent: Event,
+    isSubContext: boolean
+  ): ContextObject {
+    let attempt = 0;
     const cb = (err: Maybe<Error>, result?: Event) => {
-      if (err) {
+      if (!notEmpty(this.currentState)) return;
+      if (err && !isType('Task')<Task>(this.currentState)) {
         throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
       }
-      if (!notEmpty(this.currentState)) return;
+      if (err && isType('Task')<Task>(this.currentState)) {
+        const matchingError = (this.currentState.Retry ?? []).find(condition =>
+          condition.ErrorEquals.includes('HandledError')
+        );
+        if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
+        attempt += 1;
+        if (attempt < (matchingError.MaxAttempts ?? 0)) {
+          if (matchingError.IntervalSeconds !== undefined && matchingError.IntervalSeconds !== 0) {
+            const backoffRate = matchingError?.BackoffRate ?? 2;
+            const fullDelay =
+              attempt === 1
+                ? matchingError.IntervalSeconds
+                : matchingError.IntervalSeconds * (attempt - 1) * backoffRate;
+            console.log(`Delaying ${fullDelay} seconds for execution #${attempt + 1} of state ${name}`);
+            return delay(fullDelay).then(() => this.process(states[name], name, originalEvent, isSubContext));
+          }
+          return this.process(states[name], name, originalEvent, isSubContext);
+        }
+        const newErr = `Error in function "${this.currentStateName}" after ${attempt} attempts: ${JSON.stringify(
+          this.currentState
+        )} - ${JSON.stringify(err)}`;
+        attempt = 0;
+        throw newErr;
+      }
+      attempt = 0;
       this.executionLog(`~~~~~~~~~~~~~~~~~~~~~~~~~~~ ${this.currentStateName} finished ~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
       let state = states;
       if (!isNotCompletedState(this.currentState)) return;
@@ -680,6 +711,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     };
 
     return {
+      attempt,
       cb,
       done: cb,
       succeed: result => cb(null, result),
