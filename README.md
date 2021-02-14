@@ -1,11 +1,10 @@
 [![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
-[![npm version](https://badge.fury.io/js/@beforeyoubid/serverless-step-functions-offline.svg)](https://badge.fury.io/js/@beforeyoubid/serverless-step-functions-offline)
 [![Maintainability](https://api.codeclimate.com/v1/badges/b321644ef368976aee12/maintainability)](https://codeclimate.com/github/beforeyoubid/serverless-step-functions-offline/maintainability)
+
+
 [![NPM](https://nodei.co/npm/@beforeyoubid/serverless-step-functions-offline.png)](https://nodei.co/npm/@beforeyoubid/serverless-step-functions-offline/)
 
-# serverless-step-functions-offline
-
-![circleci status](https://circleci.com/gh/beforeyoubid/serverless-step-functions-offline.svg?style=shield)
+# serverless-step-functions-offline ![circleci status](https://circleci.com/gh/beforeyoubid/serverless-step-functions-offline.svg?style=shield)
 
 ## Documentation
 
@@ -34,7 +33,7 @@ Add the plugin to your `serverless.yml`:
 # serverless.yml
 
 plugins:
-  - @beforeyoubid/serverless-step-functions-offline
+  - '@beforeyoubid/serverless-step-functions-offline'
 ```
 
 To verify that the plugin works, run this in your command line:
@@ -62,7 +61,7 @@ For example:
 service: ServerlessStepPlugin
 frameworkVersion: ">=1.13.0 <2.0.0"
 plugins:
-   - @beforeyoubid/serverless-step-functions-offline
+   - '@beforeyoubid/serverless-step-functions-offline'
 
 # ...
 
@@ -116,7 +115,7 @@ By default `process.env.STEP_IS_OFFLINE = true`.
 # What does plugin support?
 | States | Support |
 | ------ | ------ |
-| ***Task*** | At this moment  plugin **does not support fields** *Retry*, *Catch*, *TimeoutSeconds*, *HeartbeatSeconds* |
+| ***Task*** | Supports *Retry* but at this moment **does not support fields** *Catch*, *TimeoutSeconds*, *HeartbeatSeconds* |
 | ***Choice*** | All comparison operators except: *And*, *Not*, *Or* |
 | ***Wait***  | All following fields: *Seconds*, *SecondsPath*, *Timestamp*, *TimestampPath* |
 | ***Parallel*** |  Only *Branches* |
@@ -136,7 +135,7 @@ precedes `serverless-step-functions-offline` as the order is important:
     ...
     - serverless-webpack
     ...
-    - serverless-step-functions-offline
+    - '@beforeyoubid/serverless-step-functions-offline'
     ...
 ```
 
@@ -146,6 +145,8 @@ precedes `serverless-step-functions-offline` as the order is important:
  - [x] Fixing bugs
  - [x] Support Pass, Fail, Succeed
  - [x] Integration with serverless-webpack
+ - [x] Support Map
+ - [x] Support field *Retry*
+ - [ ] Support field *Catch*
  - [ ] Add unit tests - to make plugin stable (next step)
- - [ ] Support fields *Retry*, *Catch*
  - [ ] Support other languages except node.js
