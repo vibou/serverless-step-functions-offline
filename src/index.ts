@@ -517,14 +517,11 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     // works with parameter: seconds, timestamp, timestampPath, secondsPath;
     return {
       waitState: true,
-      f: event => {
+      f: async event => {
         const waitTimer = this._waitState(event, currentState, stateName);
         this.cliLog(`Wait function ${stateName} - please wait ${waitTimer} seconds`);
-        return (arg1, arg2, cb) => {
-          setTimeout(() => {
-            cb(null, event);
-          }, waitTimer * 1000);
-        };
+        await delay(waitTimer);
+        return (e, context, done) => done(null, e || event);
       },
     };
   }
