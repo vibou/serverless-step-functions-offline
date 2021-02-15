@@ -287,7 +287,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return { handler: handlerName, filePath };
   }
 
-  buildStepWorkFlow(): ReturnType<StepFunctionsOfflinePlugin['process']> {
+  async buildStepWorkFlow(): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building StepWorkFlow');
     if (!this.stateDefinition) throw new Error('Missing state definition');
     const event = this.loadedEventFile ?? {};
