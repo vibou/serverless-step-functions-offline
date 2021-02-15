@@ -1,6 +1,6 @@
 {
   "name": "@beforeyoubid/serverless-step-functions-offline",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "Serverlesss plugin to support step function offline",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
