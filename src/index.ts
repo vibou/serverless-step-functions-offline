@@ -375,12 +375,16 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     }
   }
 
-  _handleMap(currentState: Map): StateValueReturn {
+  _handleMap(currentState: Map, stateName: string): StateValueReturn {
     return {
       f: (event: Event): Promise<void | AsyncCallback> => {
         const items = _.get(event, currentState.ItemsPath?.replace(/^\$\./, '') ?? '', []);
         const mapItems: unknown[] = _.clone(items);
         this.mapResults = [];
+        if (mapItems.length === 0) {
+          this.cliLog(`State ${stateName} is being called with no items, skipping...`);
+          if (currentState.End) return Promise.resolve();
+        }
 
         const processNextItem = (): Promise<void> => {
           const item = mapItems.shift();
@@ -422,7 +426,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           if (currentState.Next) {
             await this.process(this.states[currentState.Next], currentState.Next, event);
           }
-          return Promise.resolve();
+          return;
         });
       },
     };
@@ -533,7 +537,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
   _states(currentState: State, currentStateName: string): StateValueReturn {
     if (isType('Map')<Map>(currentState)) {
-      return this._handleMap(currentState);
+      return this._handleMap(currentState, currentStateName);
     }
     if (isType('Task')<Task>(currentState)) {
       return this._handleTask(currentState, currentStateName);
