@@ -59,6 +59,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   private parallelBranch: Maybe<Branch>;
   private eventParallelResult: Event[] = [];
 
+  shouldTerminate = true;
   serverless: ServerlessWithError;
   options: Options;
   commands: Plugin['commands'];
@@ -90,6 +91,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           'loadEventFile',
           'loadEnvVariables',
           'buildStepWorkFlow',
+          'exit',
         ],
         options: {
           stateMachine: {
@@ -115,7 +117,12 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       'step-functions-offline:loadEventFile': this.loadEventFile.bind(this),
       'step-functions-offline:loadEnvVariables': this.loadEnvVariables.bind(this),
       'step-functions-offline:buildStepWorkFlow': this.buildStepWorkFlow.bind(this),
+      'step-functions-offline:exit': this.exit.bind(this),
     };
+  }
+
+  exit(): void {
+    if (this.shouldTerminate) process.exit(0);
   }
 
   // Entry point for the plugin (sls step offline)
