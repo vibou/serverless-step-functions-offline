@@ -51,8 +51,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   private eventForParallelExecution?: Event;
   private currentStateName: Maybe<string>;
   private currentState: Maybe<State>;
-  private contextObject: Maybe<ContextObject>;
-  private subContextObject: Maybe<ContextObject>;
+  private contexts: {
+    [key: string]: Maybe<ContextObject>;
+  };
   private subStates: StateMachine['States'] = {};
   private states: StateMachine['States'] = {};
   private parallelBranch: Maybe<Branch>;
@@ -77,6 +78,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     this.functions = this.serverless.service.functions;
     this.variables = this.serverless.service.custom?.stepFunctionsOffline;
     this.cliLog = this.serverless.cli.log.bind(this.serverless.cli);
+    this.contexts = {};
     this.commands = {
       'step-functions-offline': {
         usage: 'Will run your step function locally',
@@ -293,14 +295,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     if (!this.stateDefinition?.StartAt) {
       throw new Error('Missing `startAt` in definition');
     }
-    this.contextObject = this.createContextObject(
-      this.stateDefinition.States,
-      this.stateDefinition.StartAt,
-      event,
-      false
-    );
+    this.addContextObject(this.stateDefinition.States, this.stateDefinition.StartAt, event);
     this.states = this.stateDefinition.States;
-    return this.process(this.states[this.stateDefinition.StartAt], this.stateDefinition.StartAt, event, false);
+    return this.process(this.states[this.stateDefinition.StartAt], this.stateDefinition.StartAt, event);
   }
 
   async buildSubStepWorkFlow(
@@ -308,21 +305,16 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     event: Event
   ): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building Iterator StepWorkFlow');
-    this.subContextObject = this.createContextObject(stateDefinition.States, stateDefinition.StartAt, event, true);
+    this.addContextObject(stateDefinition.States, stateDefinition.StartAt, event);
 
     if (!stateDefinition.States) return;
     const state = stateDefinition.States[stateDefinition.StartAt];
-    const result = await this.process(state, stateDefinition.StartAt, event, true);
-    this.subContextObject = null;
+    const result = await this.process(state, stateDefinition.StartAt, event);
+    this.contexts[stateDefinition.StartAt] = null;
     return result;
   }
 
-  process(
-    state: State,
-    stateName: string,
-    event: Event,
-    isSubContext: boolean
-  ): void | Promise<void | Callback> | Callback {
+  process(state: State, stateName: string, event: Event): void | Promise<void | Callback> | Callback {
     if (state && state.Type === 'Parallel') {
       this.eventForParallelExecution = event;
     }
@@ -338,7 +330,8 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     if (stateIsChoiceConditional(data) && data.choice) {
       return this._runChoice(data, event);
     } else if (!stateIsChoiceConditional(data)) {
-      return this._run(data.f(event), event, isSubContext);
+      const callback = data.f(event);
+      return this._run(callback, event, stateName);
     }
   }
 
@@ -357,12 +350,12 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   _run(
     func: Callback | Promise<void | AsyncCallback>,
     event: Event,
-    isSubContext: boolean
+    name: string
   ): void | Promise<void | Callback> | Callback {
     if (!func) return; // end of states
     this.executionLog(`~~~~~~~~~~~~~~~~~~~~~~~~~~~ ${this.currentStateName} started ~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
 
-    const contextObject = isSubContext ? this.subContextObject : this.contextObject;
+    const contextObject = this.contexts[name];
     if (contextObject) {
       if (func instanceof Promise) {
         return func.then(async mod => {
@@ -434,7 +427,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           this.mapResults = [];
 
           if (currentState.Next) {
-            await this.process(this.states[currentState.Next], currentState.Next, event, true);
+            await this.process(this.states[currentState.Next], currentState.Next, event);
           }
           return Promise.resolve();
         });
@@ -469,11 +462,11 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     _.forEach(currentState.Branches, branch => {
       this.parallelBranch = branch;
       return this.eventForParallelExecution
-        ? this.process(branch.States[branch.StartAt], branch.StartAt, this.eventForParallelExecution, true)
+        ? this.process(branch.States[branch.StartAt], branch.StartAt, this.eventForParallelExecution)
         : null;
     });
     if (currentState.Next) {
-      this.process(this.states[currentState.Next], currentState.Next, this.eventParallelResult, false);
+      this.process(this.states[currentState.Next], currentState.Next, this.eventParallelResult);
     }
     delete this.parallelBranch;
     this.eventParallelResult = [];
@@ -607,13 +600,13 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         const isConditionTrue = choice.checkFunction(functionResultValue, choice.compareWithValue);
         if (isConditionTrue && choice.choiceFunction) {
           existsAnyMatches = true;
-          return this.process(this.states[choice.choiceFunction], choice.choiceFunction, result, true);
+          return this.process(this.states[choice.choiceFunction], choice.choiceFunction, result);
         }
       }
     });
     if (!existsAnyMatches && data.defaultFunction) {
       const fName = data.defaultFunction;
-      return this.process(this.states[fName], fName, result, false);
+      return this.process(this.states[fName], fName, result);
     }
   }
 
@@ -664,12 +657,13 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return waitTimer;
   }
 
-  createContextObject(
-    states: StateMachine['States'],
-    name: string,
-    originalEvent: Event,
-    isSubContext: boolean
-  ): ContextObject {
+  addContextObject(states: StateMachine['States'], name: string, event: Event): void {
+    if (this.contexts[name]) return;
+    const contextObject = this.createContextObject(states, name, event);
+    this.contexts[name] = contextObject;
+  }
+
+  createContextObject(states: StateMachine['States'], name: string, originalEvent: Event): ContextObject {
     let attempt = 0;
     const cb = (err: Maybe<Error>, result?: Event) => {
       if (!notEmpty(this.currentState)) return;
@@ -683,6 +677,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
         attempt += 1;
         if (attempt < (matchingError.MaxAttempts ?? 0)) {
+          this.addContextObject(states, name, originalEvent);
           if (matchingError.IntervalSeconds !== undefined && matchingError.IntervalSeconds !== 0) {
             const backoffRate = matchingError?.BackoffRate ?? 2;
             const fullDelay =
@@ -690,9 +685,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
                 ? matchingError.IntervalSeconds
                 : matchingError.IntervalSeconds * (attempt - 1) * backoffRate;
             console.log(`Delaying ${fullDelay} seconds for execution #${attempt + 1} of state ${name}`);
-            return delay(fullDelay).then(() => this.process(states[name], name, originalEvent, isSubContext));
+            return delay(fullDelay).then(() => this.process(states[name], name, originalEvent));
           }
-          return this.process(states[name], name, originalEvent, isSubContext);
+          return this.process(states[name], name, originalEvent);
         }
         const newErr = `Error in function "${this.currentStateName}" after ${attempt} attempts: ${JSON.stringify(
           this.currentState
@@ -713,11 +708,13 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         this.mapResults.push(result);
       }
       if (this.currentState?.Next) {
-        return this.process(state[this.currentState.Next], this.currentState.Next, result ?? {}, isSubContext);
+        this.addContextObject(states, this.currentState.Next, originalEvent);
+        return this.process(state[this.currentState.Next], this.currentState.Next, result ?? {});
       }
     };
 
     return {
+      name,
       attempt,
       cb,
       done: cb,
