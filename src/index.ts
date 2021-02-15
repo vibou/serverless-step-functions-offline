@@ -196,7 +196,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       });
   }
 
-  getRawConfig(): Promise<any> {
+  async getRawConfig(): Promise<ServerlessWithError['service']> {
     const serverlessPath = this.serverless.config.servicePath;
     if (!serverlessPath) {
       throw new this.serverless.classes.Error('Could not find serverless manifest');
@@ -213,9 +213,15 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         `Could not find serverless manifest at path ${serverlessPath}. If this path is incorreect you should adjust the 'servicePath' variable`
       );
     }
-
+    let fromFile: ServerlessWithError['service'];
     if (/\.json|\.js$/.test(manifestFilename)) {
-      return import(manifestFilename);
+      try {
+        fromFile = await import(manifestFilename);
+        return fromFile;
+      } catch (err) {
+        console.error(err);
+        throw new Error(`Unable to import manifest at: ${manifestFilename}`);
+      }
     }
 
     return this.serverless.yamlParser.parse(manifestFilename);
