@@ -358,7 +358,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     if (contextObject) {
       if (func instanceof Promise) {
         return func.then(async mod => {
-          if (!mod) return;
+          if (!mod) return contextObject.done(null, {});
           let res;
           let err;
           try {
