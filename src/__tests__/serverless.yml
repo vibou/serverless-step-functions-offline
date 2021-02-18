@@ -20,9 +20,7 @@ custom:
       FirstLambda: firstLambda
 
 functions:
-    firstLambda:
-        handler: examples/firstLambda/index.handler
-        name: TheFirstLambda
+  - ${file(functions.yml)}
 
 stepFunctions:
   stateMachines:
@@ -30,26 +28,4 @@ stepFunctions:
       definition:
         Comment: "An example of the Amazon States Language using wait states"
         StartAt: FirstLambda
-        States:
-            FirstLambda:
-              Type: Task
-              Next: wait_using_seconds
-            wait_using_seconds:
-              Type: Wait
-              Seconds: 2
-              Next: wait_using_timestamp
-            wait_using_timestamp:
-              Type: Wait
-              Timestamp: '2015-09-04T01:59:00Z'
-              Next: wait_using_timestamp_path
-            wait_using_timestamp_path:
-              Type: Wait
-              TimestampPath: "$.expirydate"
-              Next: wait_using_seconds_path
-            wait_using_seconds_path:
-              Type: Wait
-              SecondsPath: "$.expiryseconds"
-              Next: FinalState
-            FinalState:
-              Type: Pass
-              End: true
+        States: ${file(states.yml)}

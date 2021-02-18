@@ -1,0 +1,3 @@
+firstLambda:
+    handler: examples/firstLambda/index.handler
+    name: TheFirstLambda
