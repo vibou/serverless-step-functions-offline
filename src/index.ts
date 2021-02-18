@@ -30,6 +30,8 @@ import {
 import enumList from './enum';
 
 const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
+const isString = <T>(item: string | T): item is string => typeof item == 'string';
+const fileReferenceRegex = /\$\{file\((.+)\)\}$/;
 
 export default class StepFunctionsOfflinePlugin implements Plugin {
   private location: string;
@@ -203,6 +205,19 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       });
   }
 
+  private parseYaml<T>(filename: string): Promise<T> {
+    return this.serverless.yamlParser.parse(filename);
+  }
+
+  private serverlessFileExists(filename) {
+    const serverlessPath = this.serverless.config.servicePath;
+    if (!serverlessPath) {
+      throw new this.serverless.classes.Error('Could not find serverless manifest');
+    }
+    const fullPath = path.join(serverlessPath, filename);
+    return this.serverless.utils.fileExistsSync(fullPath);
+  }
+
   async getRawConfig(): Promise<ServerlessWithError['service']> {
     const serverlessPath = this.serverless.config.servicePath;
     if (!serverlessPath) {
@@ -211,27 +226,24 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
     const manifestFilenames = ['serverless.yaml', 'serverless.yml', 'serverless.json', 'serverless.js'];
 
-    const manifestFilename = manifestFilenames
-      .map(filename => path.join(serverlessPath, filename))
-      .find(filename => this.serverless.utils.fileExistsSync(filename));
-
+    const manifestFilename = manifestFilenames.find(name => this.serverlessFileExists(name));
     if (!manifestFilename) {
       throw new this.serverless.classes.Error(
         `Could not find serverless manifest at path ${serverlessPath}. If this path is incorreect you should adjust the 'servicePath' variable`
       );
     }
+    const manifestPath = path.join(serverlessPath, manifestFilename);
     let fromFile: ServerlessWithError['service'];
-    if (/\.json|\.js$/.test(manifestFilename)) {
+    if (/\.json|\.js$/.test(manifestPath)) {
       try {
-        fromFile = await import(manifestFilename);
+        fromFile = await import(manifestPath);
         return fromFile;
       } catch (err) {
         console.error(err);
-        throw new Error(`Unable to import manifest at: ${manifestFilename}`);
+        throw new Error(`Unable to import manifest at: ${manifestPath}`);
       }
     }
-
-    return this.serverless.yamlParser.parse(manifestFilename);
+    return this.parseYaml<ServerlessWithError['service']>(manifestPath);
   }
 
   parseConfig(): Promise<void> {
@@ -294,12 +306,34 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return { handler: handlerName, filePath };
   }
 
+  async _loadStates(states: StateMachine['States'] | string): Promise<StateMachine['States']> {
+    if (isString(states)) {
+      const serverlessPath = this.serverless.config.servicePath;
+      if (!serverlessPath) {
+        throw new this.serverless.classes.Error('Could not find serverless manifest');
+      }
+      const match = states.match(fileReferenceRegex);
+      if (!match) {
+        throw new this.serverless.classes.Error(`couldn't understand string of States: ${states}`);
+      }
+      const fileName = match[1];
+      if (!this.serverlessFileExists(fileName)) {
+        throw new this.serverless.classes.Error(`Unable to find ${fileName} in serverless path`);
+      }
+      return this.parseYaml<StateMachine['States']>(path.join(serverlessPath, fileName));
+    }
+    return states;
+  }
+
   async buildStepWorkFlow(): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building StepWorkFlow');
     if (!this.stateDefinition) throw new Error('Missing state definition');
     const event = this.loadedEventFile ?? {};
     if (!this.stateDefinition?.StartAt) {
       throw new Error('Missing `startAt` in definition');
+    }
+    if (typeof this.stateDefinition.States === 'string') {
+      this.stateDefinition.States = await this._loadStates(this.stateDefinition.States);
     }
     this.addContextObject(this.stateDefinition.States, this.stateDefinition.StartAt, event);
     this.states = this.stateDefinition.States;
@@ -311,6 +345,10 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     event: Event
   ): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building Iterator StepWorkFlow');
+
+    if (typeof stateDefinition.States === 'string') {
+      stateDefinition.States = await this._loadStates(stateDefinition.States);
+    }
     this.addContextObject(stateDefinition.States, stateDefinition.StartAt, event);
 
     if (!stateDefinition.States) return;
