@@ -203,6 +203,19 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       });
   }
 
+  private parseYaml<T>(filename: string): Promise<T> {
+    return this.serverless.yamlParser.parse(filename);
+  }
+
+  private serverlessFileExists(filename) {
+    const serverlessPath = this.serverless.config.servicePath;
+    if (!serverlessPath) {
+      throw new this.serverless.classes.Error('Could not find serverless manifest');
+    }
+    const fullPath = path.join(serverlessPath, filename);
+    return this.serverless.utils.fileExistsSync(fullPath);
+  }
+
   async getRawConfig(): Promise<ServerlessWithError['service']> {
     const serverlessPath = this.serverless.config.servicePath;
     if (!serverlessPath) {
@@ -211,27 +224,24 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
     const manifestFilenames = ['serverless.yaml', 'serverless.yml', 'serverless.json', 'serverless.js'];
 
-    const manifestFilename = manifestFilenames
-      .map(filename => path.join(serverlessPath, filename))
-      .find(filename => this.serverless.utils.fileExistsSync(filename));
-
+    const manifestFilename = manifestFilenames.find(name => this.serverlessFileExists(name));
     if (!manifestFilename) {
       throw new this.serverless.classes.Error(
         `Could not find serverless manifest at path ${serverlessPath}. If this path is incorreect you should adjust the 'servicePath' variable`
       );
     }
+    const manifestPath = path.join(serverlessPath, manifestFilename);
     let fromFile: ServerlessWithError['service'];
-    if (/\.json|\.js$/.test(manifestFilename)) {
+    if (/\.json|\.js$/.test(manifestPath)) {
       try {
-        fromFile = await import(manifestFilename);
+        fromFile = await import(manifestPath);
         return fromFile;
       } catch (err) {
         console.error(err);
-        throw new Error(`Unable to import manifest at: ${manifestFilename}`);
+        throw new Error(`Unable to import manifest at: ${manifestPath}`);
       }
     }
-
-    return this.serverless.yamlParser.parse(manifestFilename);
+    return this.parseYaml<ServerlessWithError['service']>(manifestPath);
   }
 
   parseConfig(): Promise<void> {
