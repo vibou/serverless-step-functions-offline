@@ -30,6 +30,8 @@ import {
 import enumList from './enum';
 
 const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
+const isString = <T>(item: string | T): item is string => typeof item == 'string';
+const fileReferenceRegex = /\$\{file\((.+)\)\}$/;
 
 export default class StepFunctionsOfflinePlugin implements Plugin {
   private location: string;
@@ -304,12 +306,34 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return { handler: handlerName, filePath };
   }
 
+  async _loadStates(states: StateMachine['States'] | string): Promise<StateMachine['States']> {
+    if (isString(states)) {
+      const serverlessPath = this.serverless.config.servicePath;
+      if (!serverlessPath) {
+        throw new this.serverless.classes.Error('Could not find serverless manifest');
+      }
+      const match = states.match(fileReferenceRegex);
+      if (!match) {
+        throw new this.serverless.classes.Error(`couldn't understand string of States: ${states}`);
+      }
+      const fileName = match[1];
+      if (!this.serverlessFileExists(fileName)) {
+        throw new this.serverless.classes.Error(`Unable to find ${fileName} in serverless path`);
+      }
+      return this.parseYaml<StateMachine['States']>(path.join(serverlessPath, fileName));
+    }
+    return states;
+  }
+
   async buildStepWorkFlow(): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building StepWorkFlow');
     if (!this.stateDefinition) throw new Error('Missing state definition');
     const event = this.loadedEventFile ?? {};
     if (!this.stateDefinition?.StartAt) {
       throw new Error('Missing `startAt` in definition');
+    }
+    if (typeof this.stateDefinition.States === 'string') {
+      this.stateDefinition.States = await this._loadStates(this.stateDefinition.States);
     }
     this.addContextObject(this.stateDefinition.States, this.stateDefinition.StartAt, event);
     this.states = this.stateDefinition.States;
@@ -321,6 +345,10 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     event: Event
   ): Promise<ReturnType<StepFunctionsOfflinePlugin['process']>> {
     this.cliLog('Building Iterator StepWorkFlow');
+
+    if (typeof stateDefinition.States === 'string') {
+      stateDefinition.States = await this._loadStates(stateDefinition.States);
+    }
     this.addContextObject(stateDefinition.States, stateDefinition.StartAt, event);
 
     if (!stateDefinition.States) return;
