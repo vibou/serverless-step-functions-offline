@@ -147,9 +147,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
   _checkVersion(): void {
     const version = this.serverless.version;
-    if (!version.startsWith('1.')) {
+    if (!version.startsWith('2.')) {
       throw new this.serverless.classes.Error(
-        `Serverless step offline requires Serverless v1.x.x but found ${version}`
+        `Serverless step offline requires Serverless v2.x.x but found ${version}`
       );
     }
   }

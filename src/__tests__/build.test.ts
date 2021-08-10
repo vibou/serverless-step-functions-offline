@@ -23,8 +23,10 @@ describe('build.js', () => {
     it('should not throw err', async () => {
       const SFOP = new StepFunctionsOfflinePlugin(serverless, {
         ...global['options'],
+        location: '/src/__tests__',
       });
       SFOP.variables = { FirstLambda: 'firstLambda' };
+      SFOP._getLocation();
       await SFOP.hooks[global['hooks'].findState]();
       await SFOP.hooks[global['hooks'].loadEventFile]();
       await SFOP.hooks[global['hooks'].buildStepWorkFlow]();
