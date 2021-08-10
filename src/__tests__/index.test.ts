@@ -33,14 +33,14 @@ describe('index.js', () => {
     });
 
     it('should throw err - unsupportable serverless version', () => {
-      const version = '0.5';
+      const version = '1.5';
       stepFunctionsOfflinePlugin.serverless.version = version;
-      const error = `Serverless step offline requires Serverless v1.x.x but found ${version}`;
+      const error = `Serverless step offline requires Serverless v2.x.x but found ${version}`;
       expect(stepFunctionsOfflinePlugin.hooks[global['hooks'].start]).toThrowError(error);
     });
 
     it('should be acceptable serverless version', () => {
-      const version = '1.14';
+      const version = '2.0';
       stepFunctionsOfflinePlugin.serverless.version = version;
       expect(stepFunctionsOfflinePlugin.hooks[global['hooks'].start]).not.toThrowError();
     });
