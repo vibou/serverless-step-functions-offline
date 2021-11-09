@@ -35,6 +35,8 @@ jobs:
             JEST_JUNIT_OUTPUT_DIR: ./reports/jest/
       - store_test_results:
           path: ./reports/jest/
+      - store_artifacts:
+          path: coverage
       - save_cache:
           key: node_modules-{{ checksum "yarn.lock" }}
           paths:
