@@ -19,7 +19,8 @@
     "build-and-publish": "npm run build && npm publish --access public",
     "build": "npm run build:types && npm run build:js",
     "build:types": "tsc --emitDeclarationOnly",
-    "build:js": "babel src/*.ts --out-dir dist --extensions \".ts,.tsx\" --source-maps inline"
+    "build:js": "babel src/*.ts --out-dir dist --extensions \".ts,.tsx\" --source-maps inline",
+    "build:watch": "babel src/*.ts --watch --out-dir dist --extensions \".ts,.tsx\" --source-maps inline"
   },
   "dependencies": {
     "lodash": "^4.17.15",
