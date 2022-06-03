@@ -473,6 +473,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         return executeMapperPromise.then(async () => {
           const mappedResult = await Promise.all(this.mapResults);
 
+        return processNextItem().then(async () => {
+          const mappedResult = await Promise.all(this.mapResults);
+
           if (currentState.ResultPath) {
             _.set(event, currentState.ResultPath.replace(/\$\./, ''), mappedResult);
           }
