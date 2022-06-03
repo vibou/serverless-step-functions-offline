@@ -1,33 +1,32 @@
-import _ from 'lodash';
 import path from 'path';
+
+import { Choice, Fail, Map, Parallel, Pass, State, StateMachine, Succeed, Task, Wait } from 'asl-types';
+import _ from 'lodash';
 import moment from 'moment';
 import Plugin from 'serverless/classes/Plugin';
 
-import { StateMachine, State, Map, Fail, Succeed, Task, Parallel, Wait, Pass, Choice } from 'asl-types';
-
+import enumList from './enum';
 import {
-  // StateMachine,
-  Options,
-  ServerlessWithError,
-  ContextObject,
-  Failure,
-  // State,
-  Maybe,
-  Event,
-  Callback,
   AsyncCallback,
   Branch,
-  ChoiceInstance,
+  Callback,
   ChoiceConditional,
+  ChoiceInstance,
+  ContextObject,
+  Event,
+  Failure,
+  Maybe,
+  Options,
+  ServerlessWithError,
+  StateMachineBase,
   StateValueReturn,
   definitionIsHandler,
-  stateIsChoiceConditional,
   isNotCompletedState,
   isType,
   notEmpty,
-  StateMachineBase,
+  stateIsChoiceConditional,
 } from './types';
-import enumList from './enum';
+import { withWorkers } from './worker';
 
 const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
 const isString = <T>(item: string | T): item is string => typeof item == 'string';
@@ -468,13 +467,16 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         };
 
         return processNextItem().then(async () => {
+          const mappedResult = await Promise.all(this.mapResults);
+
           if (currentState.ResultPath) {
-            _.set(event, currentState.ResultPath.replace(/\$\./, ''), this.mapResults);
+            _.set(event, currentState.ResultPath.replace(/\$\./, ''), mappedResult);
           }
 
           this.mapResults = [];
 
           if (currentState.Next) {
+            this.addContextObject(this.states, currentState.Next, event);
             await this.process(this.states[currentState.Next], currentState.Next, event);
           }
           return;
@@ -732,7 +734,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
               attempt === 1
                 ? matchingError.IntervalSeconds
                 : matchingError.IntervalSeconds * (attempt - 1) * backoffRate;
-            console.log(`Delaying ${fullDelay} seconds for execution #${attempt + 1} of state ${name}`);
             return delay(fullDelay).then(() => this.process(states[name], name, originalEvent));
           }
           return this.process(states[name], name, originalEvent);
