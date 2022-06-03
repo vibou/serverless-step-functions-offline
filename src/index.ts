@@ -439,10 +439,11 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           if (currentState.End) return Promise.resolve();
         }
 
-        const processNextItem = (): Promise<void> => {
-          const item = mapItems.shift();
+        const concurrency = currentState.MaxConcurrency || 1;
 
-          if (item) {
+        const executeMapperPromise = withWorkers(
+          mapItems,
+          item => {
             const parseValue = (value: string) => {
               if (value === '$$.Map.Item.Value') {
                 return item;
@@ -463,13 +464,43 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
                 }, {})
               : {};
 
-            return this.buildSubStepWorkFlow(currentState.Iterator, newEvent).then(processNextItem);
-          }
+            return this.buildSubStepWorkFlow(currentState.Iterator, newEvent);
+          },
+          concurrency,
+          v => this.executionLog(v)
+        );
 
-          return Promise.resolve();
-        };
+        // const processNextItem = (): Promise<void> => {
+        //   const item = mapItems.shift();
 
-        return processNextItem().then(async () => {
+        //   if (item) {
+        //     const parseValue = (value: string) => {
+        //       if (value === '$$.Map.Item.Value') {
+        //         return item;
+        //       }
+
+        //       if (/^\$\./.test(value)) {
+        //         return _.get(event, value.replace(/^\$\./, ''));
+        //       }
+        //     };
+
+        //     const newEvent = currentState.Parameters
+        //       ? Object.keys(currentState.Parameters).reduce((acc: { [key: string]: unknown }, key) => {
+        //           if (/\.\$$/.test(key) && currentState.Parameters) {
+        //             acc[key.replace(/\.\$$/, '')] = parseValue(currentState.Parameters[key].toString());
+        //           }
+
+        //           return acc;
+        //         }, {})
+        //       : {};
+
+        //     return this.buildSubStepWorkFlow(currentState.Iterator, newEvent).then(processNextItem);
+        //   }
+
+        //   return Promise.resolve();
+        // };
+
+        return executeMapperPromise.then(async () => {
           const mappedResult = await Promise.all(this.mapResults);
 
           if (currentState.ResultPath) {
