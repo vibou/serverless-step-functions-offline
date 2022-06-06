@@ -1,8 +1,8 @@
 /* istanbul ignore file */
 import Serverless from 'serverless';
-import CLI from 'serverless/lib/classes/CLI';
 import { ServerlessWithError } from '../types';
 import StepFunctionsOfflinePlugin from '..';
+import Logging from './logging';
 
 export default function setup(): {
   stepFunctionsOfflinePlugin: StepFunctionsOfflinePlugin;
@@ -13,7 +13,6 @@ export default function setup(): {
     commands: [],
     options: {},
   });
-  serverless.cli = new CLI();
   // serverless.setProvider('aws', new AwsProvider(serverless));
   serverless.service.functions = {
     firstLambda: {
@@ -32,6 +31,10 @@ export default function setup(): {
   return {
     serverless: serverless as ServerlessWithError,
     StepFunctionsOfflinePlugin,
-    stepFunctionsOfflinePlugin: new StepFunctionsOfflinePlugin(serverless as ServerlessWithError, global['options']),
+    stepFunctionsOfflinePlugin: new StepFunctionsOfflinePlugin(
+      serverless as ServerlessWithError,
+      global['options'],
+      Logging
+    ),
   };
 }

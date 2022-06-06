@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import path from 'path';
 import moment from 'moment';
-import Plugin from 'serverless/classes/Plugin';
+import Plugin, { Logging } from 'serverless/classes/Plugin';
 
 import { StateMachine, State, Map, Fail, Succeed, Task, Parallel, Wait, Pass, Choice } from 'asl-types';
 
@@ -66,20 +66,22 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   options: Options;
   commands: Plugin['commands'];
   hooks: Plugin['hooks'];
+  cli: Logging;
   stateMachine: Options['stateMachine'];
 
   environment = '';
 
-  constructor(serverless: ServerlessWithError, options: Options) {
+  constructor(serverless: ServerlessWithError, options: Options, cli: Logging) {
     this.location = process.cwd();
     this.serverless = serverless;
+    this.cli = cli;
     this.options = options;
     this.stateMachine = this.options.stateMachine;
     this.detailedLog = (this.options.detailedLog || this.options.l) ?? false;
     this.eventFile = this.options.event || this.options.e;
     this.functions = this.serverless.service.functions;
     this.variables = this.serverless.service.custom?.stepFunctionsOffline;
-    this.cliLog = this.serverless.cli.log.bind(this.serverless.cli);
+    this.cliLog = this.cli.log.info.bind(this.cli);
     this.contexts = {};
     this.commands = {
       'step-functions-offline': {

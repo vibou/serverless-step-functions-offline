@@ -1,3 +1,4 @@
+import logging from './logging';
 import setup from './setup';
 
 const { stepFunctionsOfflinePlugin, StepFunctionsOfflinePlugin, serverless } = setup();
@@ -65,13 +66,13 @@ describe('index.js', () => {
     });
 
     it('should apply event file ', async () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { e: 'src/__tests__/eventFile.json' });
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { e: 'src/__tests__/eventFile.json' }, logging);
       await SFOP.hooks[global['hooks'].loadEventFile]();
       expect(SFOP.loadedEventFile).toMatchObject({ foo: 1, bar: 2 });
     });
 
     it('should throw error - incorrect path to event file ', () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '../__tests__/eventFile2.json' });
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '../__tests__/eventFile2.json' }, logging);
       expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual(
         expect.objectContaining({ code: 'MODULE_NOT_FOUND' })
       );
@@ -94,7 +95,7 @@ describe('index.js', () => {
     });
 
     it('should throw error - incorrect path to event file ', () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '..__tests__/eventFile.json' });
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '..__tests__/eventFile.json' }, logging);
       expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual(
         expect.objectContaining({ code: 'MODULE_NOT_FOUND' })
       );

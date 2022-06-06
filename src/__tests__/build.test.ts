@@ -1,5 +1,6 @@
 /* istanbul ignore file */
 import setup from './setup';
+import logging from './logging';
 
 const { stepFunctionsOfflinePlugin, StepFunctionsOfflinePlugin, serverless } = setup();
 
