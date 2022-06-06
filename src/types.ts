@@ -52,7 +52,10 @@ interface StateType {
   Type: string;
 }
 
-export const isType = (type: string) => <T extends StateType>(state: State | T): state is T => state.Type === type;
+export const isType =
+  (type: string) =>
+  <T extends StateType>(state: State | T): state is T =>
+    state.Type === type;
 
 export const definitionIsHandler = (
   value: Maybe<Serverless.FunctionDefinitionHandler | Serverless.FunctionDefinitionImage>
