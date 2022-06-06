@@ -270,8 +270,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           'us-east-1';
       }
 
-      // this.serverless.variables.populateService(this.serverless.pluginManager.cliOptions);
-      this.serverless.variables.populateService();
+      if (this.serverless.variables.populateService) {
+        this.serverless.variables.populateService();
+      }
       return Promise.resolve();
     });
   }

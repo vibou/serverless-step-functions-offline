@@ -35,12 +35,12 @@ describe('index.js', () => {
     it('should throw err - unsupportable serverless version', () => {
       const version = '1.5';
       stepFunctionsOfflinePlugin.serverless.version = version;
-      const error = `Serverless step offline requires Serverless v2.x.x but found ${version}`;
+      const error = `Serverless Step Functions Offline requires Serverless v3.x.x but found ${version}`;
       expect(stepFunctionsOfflinePlugin.hooks[global['hooks'].start]).toThrowError(error);
     });
 
     it('should be acceptable serverless version', () => {
-      const version = '2.0';
+      const version = '3.0';
       stepFunctionsOfflinePlugin.serverless.version = version;
       expect(stepFunctionsOfflinePlugin.hooks[global['hooks'].start]).not.toThrowError();
     });
@@ -72,7 +72,9 @@ describe('index.js', () => {
 
     it('should throw error - incorrect path to event file ', () => {
       const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '../__tests__/eventFile2.json' });
-      expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual({ error: /Cannot find module/ });
+      expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual(
+        expect.objectContaining({ code: 'MODULE_NOT_FOUND' })
+      );
     });
   });
 
@@ -93,7 +95,9 @@ describe('index.js', () => {
 
     it('should throw error - incorrect path to event file ', () => {
       const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '..__tests__/eventFile.json' });
-      expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual({ error: /Cannot find module/ });
+      expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual(
+        expect.objectContaining({ code: 'MODULE_NOT_FOUND' })
+      );
     });
     describe('trying to load serverless file', () => {
       it('should throw err - state does not exist', () => {
