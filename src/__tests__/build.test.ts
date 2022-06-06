@@ -15,16 +15,19 @@ describe('build.js', () => {
         console.log(res);
         expect(res).toBeUndefined();
       } catch (err) {
-        console.log(err);
-        expect(err.message).toEqual('Function "FirstLambda" does not presented in serverless manifest');
+        expect((err as Error).message).toEqual('Function "FirstLambda" does not presented in serverless manifest');
       }
     });
 
     it('should not throw err', async () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, {
-        ...global['options'],
-        location: '/src/__tests__',
-      });
+      const SFOP = new StepFunctionsOfflinePlugin(
+        serverless,
+        {
+          ...global['options'],
+          location: '/src/__tests__',
+        },
+        logging
+      );
       SFOP.variables = { FirstLambda: 'firstLambda' };
       SFOP._getLocation();
       await SFOP.hooks[global['hooks'].findState]();
