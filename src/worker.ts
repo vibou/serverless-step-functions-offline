@@ -13,16 +13,25 @@ interface WorkerResult<O> {
   value?: O;
 }
 
-async function mapItem<I, O>(mapFn: MapFn<I, O>, currentValue: I, index: number, array: I[]): Promise<WorkerResult<O>> {
+async function mapItem<I, O>(
+  mapFn: MapFn<I, O>,
+  currentValue: I,
+  index: number,
+  array: I[],
+  propagateError = true
+): Promise<WorkerResult<O>> {
   try {
     return {
       status: 'fulfilled',
       value: await mapFn(currentValue, index, array),
     };
-  } catch (reason: any) {
+  } catch (error) {
+    if (propagateError) {
+      throw error;
+    }
     return {
       status: 'rejected',
-      reason,
+      reason: error as Error,
     };
   }
 }
