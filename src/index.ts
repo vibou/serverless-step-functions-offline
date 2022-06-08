@@ -470,36 +470,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           v => this.executionLog(v)
         );
 
-        // const processNextItem = (): Promise<void> => {
-        //   const item = mapItems.shift();
-
-        //   if (item) {
-        //     const parseValue = (value: string) => {
-        //       if (value === '$$.Map.Item.Value') {
-        //         return item;
-        //       }
-
-        //       if (/^\$\./.test(value)) {
-        //         return _.get(event, value.replace(/^\$\./, ''));
-        //       }
-        //     };
-
-        //     const newEvent = currentState.Parameters
-        //       ? Object.keys(currentState.Parameters).reduce((acc: { [key: string]: unknown }, key) => {
-        //           if (/\.\$$/.test(key) && currentState.Parameters) {
-        //             acc[key.replace(/\.\$$/, '')] = parseValue(currentState.Parameters[key].toString());
-        //           }
-
-        //           return acc;
-        //         }, {})
-        //       : {};
-
-        //     return this.buildSubStepWorkFlow(currentState.Iterator, newEvent).then(processNextItem);
-        //   }
-
-        //   return Promise.resolve();
-        // };
-
         return executeMapperPromise.then(async () => {
           const mappedResult = await Promise.all(this.mapResults);
 
@@ -662,6 +632,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       return currentState.Result || event;
     } else {
       const variableName = currentState.ResultPath.split('$.')[1];
+      console.log('variable name', { path: currentState.ResultPath, variableName, result: currentState.Result });
       if (!currentState.Result) {
         event[variableName] = event;
         return event;
@@ -758,7 +729,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         const matchingError = (this.currentState.Retry ?? []).find(condition =>
           condition.ErrorEquals.includes('HandledError')
         );
-        if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
+        if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err.message)}`;
         attempt += 1;
         if (attempt < (matchingError.MaxAttempts ?? 0)) {
           this.addContextObject(states, name, originalEvent);
@@ -790,9 +761,16 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       if (this.mapResults && !this.currentState?.Next) {
         this.mapResults.push(result);
       }
+
+      let nextEvent = result;
+      if (isType('Task')<Task>(this.currentState) && this.currentState.ResultPath) {
+        _.set(originalEvent, this.currentState.ResultPath.replace(/\$\./, ''), result);
+        nextEvent = originalEvent;
+      }
+
       if (this.currentState?.Next) {
-        this.addContextObject(states, this.currentState.Next, originalEvent);
-        return this.process(state[this.currentState.Next], this.currentState.Next, result ?? {});
+        if (this.currentState) this.addContextObject(states, this.currentState.Next, nextEvent ?? originalEvent);
+        return this.process(state[this.currentState.Next], this.currentState.Next, nextEvent ?? {});
       }
     };
 
