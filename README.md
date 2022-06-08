@@ -1,10 +1,7 @@
 [![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
-[![Maintainability](https://api.codeclimate.com/v1/badges/b321644ef368976aee12/maintainability)](https://codeclimate.com/github/beforeyoubid/serverless-step-functions-offline/maintainability)
+[![Maintainability](https://api.codeclimate.com/v1/badges/b321644ef368976aee12/maintainability)](https://codeclimate.com/github/vibou/serverless-step-functions-offline/maintainability)
 
-
-[![NPM](https://nodei.co/npm/@beforeyoubid/serverless-step-functions-offline.png)](https://nodei.co/npm/@beforeyoubid/serverless-step-functions-offline/)
-
-# serverless-step-functions-offline ![circleci status](https://circleci.com/gh/beforeyoubid/serverless-step-functions-offline.svg?style=shield)
+[![NPM](https://nodei.co/npm/@vibou/serverless-step-functions-offline.png)](https://nodei.co/npm/@vibou/serverless-step-functions-offline/)
 
 ## Documentation
 
@@ -12,40 +9,52 @@
 - [Setup](#setup)
 - [Requirements](#requirements)
 - [Usage](#usage)
-- [Run plugin](#run-plugin)
-- [What does plugin support](#what-does-plugin-support)
-- [Usage with serverless-wepback](#usage-with-serverless-webpack)
-
+- [Run Plugin](#run-plugin)
+  - [Run the workflow](#run-the-workflow)
+  - [Run the workflow using the AWS-SDK from a lambda function](#run-the-workflow-using-the-aws-sdk-from-a-lambda-function)
+- [Other Information](#other-information)
+  - [IS_OFFLINE information](#is_offline-information)
+  - [What does plugin support?](#what-does-plugin-support)
 
 # Install
+
 Using NPM:
+
 ```bash
-npm install @beforeyoubid/serverless-step-functions-offline --save-dev
+npm install @vibou/serverless-step-functions-offline serverless-step-functions --save-dev
 ```
+
 or Yarn:
+
 ```bash
-yarn add @beforeyoubid/serverless-step-functions-offline --dev
+yarn add @vibou/serverless-step-functions-offline serverless-step-functions --dev
 ```
 
 # Setup
+
 Add the plugin to your `serverless.yml`:
+
 ```yaml
 # serverless.yml
 
 plugins:
-  - '@beforeyoubid/serverless-step-functions-offline'
+  - serverless-step-functions
+  - '@vibou/serverless-step-functions-offline'
 ```
 
 To verify that the plugin works, run this in your command line:
+
 ```bash
 sls step-functions-offline
 ```
 
 It should rise an error like that:
 
-> Serverless plugin "serverless-step-functions-offline" initialization errored: Please add ENV_VARIABLES to section "custom"
+> Serverless plugin "serverless-step-functions-offline" initialization errored: Please add ENV_VARIABLES to section
+> "custom"
 
 # Requirements
+
 This plugin works only with [serverless-step-functions](https://github.com/horike37/serverless-step-functions).
 
 You must have this plugin installed and correctly specified statemachine definition using Amazon States Language.
@@ -53,100 +62,201 @@ You must have this plugin installed and correctly specified statemachine definit
 Example of statemachine definition you can see [here](https://github.com/horike37/serverless-step-functions#setup).
 
 # Usage
-After all steps are done, need to add to section **custom** in serverless.yml the key **stepFunctionsOffline** with properties *stateName*: name of lambda function.
+
+After all steps are done, need to add to section **custom** in serverless.yml the key **stepFunctionsOffline** with
+properties _stateName_: name of lambda function.
 
 For example:
 
 ```yaml
 service: ServerlessStepPlugin
-frameworkVersion: ">=1.13.0 <2.0.0"
 plugins:
-   - '@beforeyoubid/serverless-step-functions-offline'
+  - serverless-offline
+  - serverless-step-functions
+  - '@vibou/serverless-step-functions-offline'
 
 # ...
 
 custom:
   stepFunctionsOffline:
-    FirstLambda: firstLambda #(v2.0)
-    # ...
-    # ...
-    SecondLambda: secondLambda #(v2.0)
+    Producer: producer
+    Reducer: reducer
+    Finish: reducer
+    MappingFunction: mapper
 
 functions:
-    firstLambda:
-        handler: firstLambda/index.handler
-        name: TheFirstLambda
-    secondLambda:
-        handler: secondLambda/index.handler
-        name: TheSecondLambda
+  producer:
+    handler: build/function/workflow/producer/index.handler
+    timeout: 30
+
+  mapper:
+    handler: build/function/workflow/mapper/index.handler
+    timeout: 300
+
+  reducer:
+    handler: build/function/workflow/reducer/index.handler
+    timeout: 300
+
 stepFunctions:
   stateMachines:
-    foo:
+    mapReduceExample:
       definition:
-        Comment: "An example of the Amazon States Language using wait states"
-        StartAt: FirstLambda
+        Comment: 'MapReduceExample'
+        StartAt: Producer
         States:
-            FirstLambda:
-              Type: Task
-              Resource: arn:aws:lambda:eu-west-1:123456789:function:TheFirstLambda
-              Next: SecondLambda
-            SecondLambda:
-              Type: Task
-              Resource: arn:aws:lambda:eu-west-1:123456789:function:TheSecondLambda
-              End: true
-```
+          Producer:
+            Type: Task
+            Resource: arn:aws:lambda:eu-west-1:123456789:function:producer
+            ResultPath: '$.producer'
+            Next: Mapper
 
-Where:
-- `StepOne` is the name of step in state machine
-- `firstLambda` is the name of function in section **functions**
+          Mapper:
+            Type: Map
+            Next: Reducer
+            ItemsPath: '$.producer.requests'
+            Parameters:
+              input.$: '$.input'
+              producer.$: '$.producer'
+              item.$: '$$.Map.Item.Value'
+
+            MaxConcurrency: 10
+            ResultPath: '$.mapper'
+            Iterator:
+              StartAt: MappingFunction
+              States:
+                MappingFunction:
+                  Type: Task
+                  Resource: arn:aws:lambda:eu-west-1:123456789:function:mapper
+                  End: true
+
+          Reducer:
+            Type: Task
+            Resource: arn:aws:lambda:eu-west-1:123456789:function:reducer
+            ResultPath: '$.reducer'
+            End: true
+```
 
 # Run Plugin
-```bash
-sls step-functions-offline --stateMachine={{name}} --event={{path to event file}}
+
+## Run the workflow
+
+I recommand to add the following script to the `package.json`.
+
+```json
+"scripts": {
+  "workflow": "sls step-functions-offline --stateMachine=mapReduceExample",
+}
 ```
 
-- `name`: name of state machine in section state functions. In example above it's `foo`.
-- `event`: input values for execution in JSON format (optional)
+And run the command: `yarn workflow --event=<input.json>`
+
+## Run the workflow using the AWS-SDK from a lambda function
+
+Add the `workflow` command from the previous section and add the following dependency.
+
+`yarn add -D aws-sdk-mock`
+
+mock the AWS Service when working offline:
+
+```typescript
+import { AWSError, StepFunctions } from 'aws-sdk'
+import fs from 'fs'
+
+
+type Callback<T = any> = (err: AWSError | null, output: T) => void
+
+export function MockLocalServices(awsSDK) {
+  if (!isOffline()) return
+
+  const AWSMock = require('aws-sdk-mock')
+  AWSMock.setSDKInstance(sdk)
+
+
+  AWSMock.mock(
+    'StepFunctions',
+    'startExecution',
+    (
+      params: StepFunctions.StartExecutionInput,
+      cb: Callback<StepFunctions.Types.StartExecutionOutput>,
+    ) => {
+        // save input to file
+        const file = `/tmp/stepfunction-${v4()}.json`
+        fs.writeFileSync(file, params.input || JSON.stringify({}))
+
+        // run child process with the yarn command
+        execute('yarn', ['workflow', `--event=${file}`], {}, true).then(() =>
+          cb(null, {
+            executionArn: v4(),
+            startDate: new Date(),
+          }),
+        )
+    }
+}
+```
+
+Here is the code for the `execute` function:
+
+```typescript
+import { SpawnOptionsWithoutStdio, spawn } from 'child_process';
+export async function execute(
+  process: string,
+  args: string[],
+  options?: SpawnOptionsWithoutStdio,
+  logOutput = false
+): Promise<string> {
+  return new Promise((r, f) => {
+    const execution = spawn(process, args, options);
+    let error: Error | null = null;
+
+    let dataStr = '';
+    execution.stdout.on('data', data => {
+      if (logOutput) {
+        console.log(data.toString().replace(/\n$/, ''));
+      }
+      dataStr += data.toString();
+    });
+
+    execution.stderr.on('error', err => {
+      error = err;
+    });
+
+    execution.stderr.on('data', data => {
+      console.log(data.toString().replace(/\n$/, ''));
+    });
+
+    execution.on('close', code => {
+      if (error) {
+        f(error);
+        return;
+      }
+
+      if (code) {
+        return f(new Error('failed with code ' + code));
+      }
+
+      r(dataStr);
+    });
+  });
+}
+```
+
+# Other Information
+
+## IS_OFFLINE information
 
 If you want to know where you are (in offline mode or not) you can use env variable `STEP_IS_OFFLINE`.
 
 By default `process.env.STEP_IS_OFFLINE = true`.
 
-# What does plugin support?
-| States | Support |
-| ------ | ------ |
-| ***Task*** | Supports *Retry* but at this moment **does not support fields** *Catch*, *TimeoutSeconds*, *HeartbeatSeconds* |
-| ***Choice*** | All comparison operators except: *And*, *Not*, *Or* |
-| ***Wait***  | All following fields: *Seconds*, *SecondsPath*, *Timestamp*, *TimestampPath* |
-| ***Parallel*** |  Only *Branches* |
-| ***Map*** | Supports *Iterator* and the following fields: *ItemsPath*, *ResultsPath*, *Parameters* |
-| ***Pass*** | Result, ResultPath |
-| ***Fail***| Cause, Error|
-| ***Succeed***| |
+## What does plugin support?
 
-### Usage with serverless-webpack
-
-The plugin integrates very well with [serverless-webpack](https://github.com/serverless-heaven/serverless-webpack).
-
-Add the plugins `serverless-webpack` to your `serverless.yml` file and make sure that `serverless-webpack`
-precedes `serverless-step-functions-offline` as the order is important:
-```yaml
-  plugins:
-    ...
-    - serverless-webpack
-    ...
-    - '@beforeyoubid/serverless-step-functions-offline'
-    ...
-```
-
-### TODOs
- - [x] Support context object
- - [x] Improve performance
- - [x] Fixing bugs
- - [x] Support Pass, Fail, Succeed
- - [x] Integration with serverless-webpack
- - [x] Support Map
- - [x] Support field *Retry*
- - [ ] Support field *Catch*
- - [ ] Add unit tests - to make plugin stable (next step)
- - [ ] Support other languages except node.js
+| States         | Support                                                                                                                      |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **_Task_**     | Supports _Retry_, _ResultsPath_ but at this moment **does not support fields** _Catch_, _TimeoutSeconds_, _HeartbeatSeconds_ |
+| **_Choice_**   | All comparison operators except: _And_, _Not_, _Or_                                                                          |
+| **_Wait_**     | All following fields: _Seconds_, _SecondsPath_, _Timestamp_, _TimestampPath_                                                 |
+| **_Parallel_** | Only _Branches_                                                                                                              |
+| **_Map_**      | Supports _Iterator_ and the following fields: _ItemsPath_, _ResultsPath_, _Parameters_, _MaxConcurrency_                     |
+| **_Pass_**     | Result, ResultPath                                                                                                           |
+| **_Fail_**     | Cause, Error                                                                                                                 |
+| **_Succeed_**  |                                                                                                                              |
