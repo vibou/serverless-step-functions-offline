@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import path from 'path';
 import moment from 'moment';
-import Plugin from 'serverless/classes/Plugin';
+import Plugin, { Logging } from 'serverless/classes/Plugin';
 
 import { StateMachine, State, Map, Fail, Succeed, Task, Parallel, Wait, Pass, Choice } from 'asl-types';
 
@@ -66,20 +66,22 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   options: Options;
   commands: Plugin['commands'];
   hooks: Plugin['hooks'];
+  cli: Logging;
   stateMachine: Options['stateMachine'];
 
   environment = '';
 
-  constructor(serverless: ServerlessWithError, options: Options) {
+  constructor(serverless: ServerlessWithError, options: Options, cli: Logging) {
     this.location = process.cwd();
     this.serverless = serverless;
+    this.cli = cli;
     this.options = options;
     this.stateMachine = this.options.stateMachine;
     this.detailedLog = (this.options.detailedLog || this.options.l) ?? false;
     this.eventFile = this.options.event || this.options.e;
     this.functions = this.serverless.service.functions;
     this.variables = this.serverless.service.custom?.stepFunctionsOffline;
-    this.cliLog = this.serverless.cli.log.bind(this.serverless.cli);
+    this.cliLog = this.cli.log.info.bind(this.cli);
     this.contexts = {};
     this.commands = {
       'step-functions-offline': {
@@ -147,9 +149,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
   _checkVersion(): void {
     const version = this.serverless.version;
-    if (!version.startsWith('2.')) {
+    if (!version.startsWith('3.')) {
       throw new this.serverless.classes.Error(
-        `Serverless step offline requires Serverless v2.x.x but found ${version}`
+        `Serverless Step Functions Offline requires Serverless v3.x.x but found ${version}`
       );
     }
   }
@@ -270,8 +272,9 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           'us-east-1';
       }
 
-      // this.serverless.variables.populateService(this.serverless.pluginManager.cliOptions);
-      this.serverless.variables.populateService();
+      if (this.serverless.variables.populateService) {
+        this.serverless.variables.populateService();
+      }
       return Promise.resolve();
     });
   }

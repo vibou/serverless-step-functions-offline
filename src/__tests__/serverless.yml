@@ -1,11 +1,10 @@
 service: ServerlessStepPlugin
 
-frameworkVersion: '>=<2.0.0'
+frameworkVersion: '>=<3.15.0'
 
 plugins:
-   - serverless-step-functions
-   - serverless-step-functions-offline
-
+  - serverless-step-functions
+  - serverless-step-functions-offline
 
 provider:
   name: aws
@@ -17,7 +16,7 @@ provider:
 
 custom:
   stepFunctionsOffline:
-      FirstLambda: firstLambda
+    FirstLambda: firstLambda
 
 functions:
   - ${file(functions.yml)}
@@ -26,6 +25,6 @@ stepFunctions:
   stateMachines:
     foo:
       definition:
-        Comment: "An example of the Amazon States Language using wait states"
+        Comment: 'An example of the Amazon States Language using wait states'
         StartAt: FirstLambda
         States: ${file(states.yml)}
