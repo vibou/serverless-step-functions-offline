@@ -432,7 +432,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     return {
       f: (event: Event): Promise<void | AsyncCallback> => {
         const items = _.get(event, currentState.ItemsPath?.replace(/^\$\./, '') ?? '', []);
-        const mapItems: unknown[] = _.clone(items);
+        const mapItems: any[] = _.clone(items);
         this.mapResults = [];
         if (mapItems.length === 0) {
           this.cliLog(`State ${stateName} is being called with no items, skipping...`);
@@ -444,6 +444,8 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         const executeMapperPromise = withWorkers(
           mapItems,
           item => {
+            if (!item) return;
+
             const parseValue = (value: string) => {
               if (value === '$$.Map.Item.Value') {
                 return item;
@@ -472,9 +474,8 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
         return executeMapperPromise.then(async () => {
           const mappedResult = await Promise.all(this.mapResults);
-
           if (currentState.ResultPath) {
-            _.set(event, currentState.ResultPath.replace(/\$\./, ''), mappedResult);
+            _.set(event, currentState.ResultPath.replace(/\$\./, ''), serialize(mappedResult));
           }
 
           this.mapResults = [];
@@ -632,7 +633,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       return currentState.Result || event;
     } else {
       const variableName = currentState.ResultPath.split('$.')[1];
-      console.log('variable name', { path: currentState.ResultPath, variableName, result: currentState.Result });
       if (!currentState.Result) {
         event[variableName] = event;
         return event;
@@ -729,7 +729,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         const matchingError = (this.currentState.Retry ?? []).find(condition =>
           condition.ErrorEquals.includes('HandledError')
         );
-        if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err.message)}`;
+        if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
         attempt += 1;
         if (attempt < (matchingError.MaxAttempts ?? 0)) {
           this.addContextObject(states, name, originalEvent);
@@ -739,6 +739,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
               attempt === 1
                 ? matchingError.IntervalSeconds
                 : matchingError.IntervalSeconds * (attempt - 1) * backoffRate;
+            console.log(`Delaying ${fullDelay} seconds for execution #${attempt + 1} of state ${name}`);
             return delay(fullDelay).then(() => this.process(states[name], name, originalEvent));
           }
           return this.process(states[name], name, originalEvent);
@@ -755,16 +756,15 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       if (!isNotCompletedState(this.currentState)) return;
       if (this.parallelBranch && this.parallelBranch.States) {
         state = this.parallelBranch.States;
-        if (!this.currentState?.Next) this.eventParallelResult.push(result ?? {}); // it means the end of execution of branch
+        if (!this.currentState?.Next) this.eventParallelResult.push(serialize(result) ?? {}); // it means the end of execution of branch
       }
 
       if (this.mapResults && !this.currentState?.Next) {
-        this.mapResults.push(result);
+        this.mapResults.push(serialize(result));
       }
-
       let nextEvent = result;
       if (isType('Task')<Task>(this.currentState) && this.currentState.ResultPath) {
-        _.set(originalEvent, this.currentState.ResultPath.replace(/\$\./, ''), result);
+        _.set(originalEvent, this.currentState.ResultPath.replace(/\$\./, ''), serialize(result));
         nextEvent = originalEvent;
       }
 
