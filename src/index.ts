@@ -1,33 +1,32 @@
-import _ from 'lodash';
 import path from 'path';
+
+import { Choice, Fail, Map, Parallel, Pass, State, StateMachine, Succeed, Task, Wait } from 'asl-types';
+import _ from 'lodash';
 import moment from 'moment';
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 
-import { StateMachine, State, Map, Fail, Succeed, Task, Parallel, Wait, Pass, Choice } from 'asl-types';
-
+import enumList from './enum';
 import {
-  // StateMachine,
-  Options,
-  ServerlessWithError,
-  ContextObject,
-  Failure,
-  // State,
-  Maybe,
-  Event,
-  Callback,
   AsyncCallback,
   Branch,
-  ChoiceInstance,
+  Callback,
   ChoiceConditional,
+  ChoiceInstance,
+  ContextObject,
+  Event,
+  Failure,
+  Maybe,
+  Options,
+  ServerlessWithError,
+  StateMachineBase,
   StateValueReturn,
   definitionIsHandler,
-  stateIsChoiceConditional,
   isNotCompletedState,
   isType,
   notEmpty,
-  StateMachineBase,
+  stateIsChoiceConditional,
 } from './types';
-import enumList from './enum';
+import { withWorkers } from './worker';
 
 const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
 const isString = <T>(item: string | T): item is string => typeof item == 'string';
@@ -440,10 +439,11 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           if (currentState.End) return Promise.resolve();
         }
 
-        const processNextItem = (): Promise<void> => {
-          const item = mapItems.shift();
+        const concurrency = currentState.MaxConcurrency || 1;
 
-          if (item) {
+        const executeMapperPromise = withWorkers(
+          mapItems,
+          item => {
             const parseValue = (value: string) => {
               if (value === '$$.Map.Item.Value') {
                 return item;
@@ -464,20 +464,23 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
                 }, {})
               : {};
 
-            return this.buildSubStepWorkFlow(currentState.Iterator, newEvent).then(processNextItem);
-          }
+            return this.buildSubStepWorkFlow(currentState.Iterator, newEvent);
+          },
+          concurrency,
+          v => this.executionLog(v)
+        );
 
-          return Promise.resolve();
-        };
+        return executeMapperPromise.then(async () => {
+          const mappedResult = await Promise.all(this.mapResults);
 
-        return processNextItem().then(async () => {
           if (currentState.ResultPath) {
-            _.set(event, currentState.ResultPath.replace(/\$\./, ''), this.mapResults);
+            _.set(event, currentState.ResultPath.replace(/\$\./, ''), mappedResult);
           }
 
           this.mapResults = [];
 
           if (currentState.Next) {
+            this.addContextObject(this.states, currentState.Next, event);
             await this.process(this.states[currentState.Next], currentState.Next, event);
           }
           return;
@@ -629,6 +632,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       return currentState.Result || event;
     } else {
       const variableName = currentState.ResultPath.split('$.')[1];
+      console.log('variable name', { path: currentState.ResultPath, variableName, result: currentState.Result });
       if (!currentState.Result) {
         event[variableName] = event;
         return event;
@@ -725,7 +729,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         const matchingError = (this.currentState.Retry ?? []).find(condition =>
           condition.ErrorEquals.includes('HandledError')
         );
-        if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err)}`;
+        if (!matchingError) throw `Error in function "${this.currentStateName}": ${JSON.stringify(err.message)}`;
         attempt += 1;
         if (attempt < (matchingError.MaxAttempts ?? 0)) {
           this.addContextObject(states, name, originalEvent);
@@ -735,7 +739,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
               attempt === 1
                 ? matchingError.IntervalSeconds
                 : matchingError.IntervalSeconds * (attempt - 1) * backoffRate;
-            console.log(`Delaying ${fullDelay} seconds for execution #${attempt + 1} of state ${name}`);
             return delay(fullDelay).then(() => this.process(states[name], name, originalEvent));
           }
           return this.process(states[name], name, originalEvent);
@@ -758,9 +761,16 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       if (this.mapResults && !this.currentState?.Next) {
         this.mapResults.push(result);
       }
+
+      let nextEvent = result;
+      if (isType('Task')<Task>(this.currentState) && this.currentState.ResultPath) {
+        _.set(originalEvent, this.currentState.ResultPath.replace(/\$\./, ''), result);
+        nextEvent = originalEvent;
+      }
+
       if (this.currentState?.Next) {
-        this.addContextObject(states, this.currentState.Next, originalEvent);
-        return this.process(state[this.currentState.Next], this.currentState.Next, result ?? {});
+        if (this.currentState) this.addContextObject(states, this.currentState.Next, nextEvent ?? originalEvent);
+        return this.process(state[this.currentState.Next], this.currentState.Next, nextEvent ?? {});
       }
     };
 
