@@ -32,6 +32,10 @@ const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
 const isString = <T>(item: string | T): item is string => typeof item == 'string';
 const fileReferenceRegex = /\$\{file\((.+)\)\}$/;
 
+function serialize(obj: any) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 export default class StepFunctionsOfflinePlugin implements Plugin {
   private location: string;
 
@@ -477,7 +481,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           const mappedResult = await Promise.all(this.mapResults);
 
           if (currentState.ResultPath) {
-            _.set(event, currentState.ResultPath.replace(/\$\./, ''), mappedResult);
+            _.set(event, currentState.ResultPath.replace(/\$\./, ''), serialize(mappedResult));
           }
 
           this.mapResults = [];
@@ -758,16 +762,16 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       if (!isNotCompletedState(this.currentState)) return;
       if (this.parallelBranch && this.parallelBranch.States) {
         state = this.parallelBranch.States;
-        if (!this.currentState?.Next) this.eventParallelResult.push(result ?? {}); // it means the end of execution of branch
+        if (!this.currentState?.Next) this.eventParallelResult.push(serialize(result) ?? {}); // it means the end of execution of branch
       }
 
       if (this.mapResults && !this.currentState?.Next) {
-        this.mapResults.push(result);
+        this.mapResults.push(serialize(result));
       }
 
       let nextEvent = result;
       if (isType('Task')<Task>(this.currentState) && this.currentState.ResultPath) {
-        _.set(originalEvent, this.currentState.ResultPath.replace(/\$\./, ''), result);
+        _.set(originalEvent, this.currentState.ResultPath.replace(/\$\./, ''), serialize(result));
         nextEvent = originalEvent;
       }
 
