@@ -20,7 +20,7 @@
     "build": "rm -Rf dist && npm run build:types && npm run build:js",
     "build:types": "tsc --emitDeclarationOnly",
     "build:js": "babel src/*.ts --out-dir dist --extensions \".ts,.tsx\" --source-maps inline",
-    "build:watch": "babel src/*.ts --watch --out-dir dist --extensions \".ts,.tsx\" --source-maps inline"
+    "build:watch": "rm -Rf dist && babel src/*.ts --watch --out-dir dist --extensions \".ts,.tsx\" --source-maps inline"
   },
   "dependencies": {
     "lodash": "^4.17.15",
