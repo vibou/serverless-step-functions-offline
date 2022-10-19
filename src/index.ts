@@ -32,6 +32,10 @@ const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
 const isString = <T>(item: string | T): item is string => typeof item == 'string';
 const fileReferenceRegex = /\$\{file\((.+)\)\}$/;
 
+function serialize(any) {
+  return JSON.parse(JSON.stringify(any));
+}
+
 export default class StepFunctionsOfflinePlugin implements Plugin {
   private location: string;
 
@@ -399,6 +403,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     name: string
   ): void | Promise<void | Callback> | Callback {
     if (!func) return; // end of states
+
     this.executionLog(`~~~~~~~~~~~~~~~~~~~~~~~~~~~ ${this.currentStateName} started ~~~~~~~~~~~~~~~~~~~~~~~~~~~`);
 
     const contextObject = this.contexts[name];
@@ -720,6 +725,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
   createContextObject(states: StateMachine['States'], name: string, originalEvent: Event): ContextObject {
     let attempt = 0;
+    delete originalEvent['default'];
     const cb = (err: Maybe<Error>, result?: Event) => {
       if (!notEmpty(this.currentState)) return;
       if (err && !isType('Task')<Task>(this.currentState)) {
@@ -785,6 +791,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   }
 
   executionLog(log: string): void {
-    if (this.detailedLog) this.cliLog(log);
+    if (this.detailedLog) console.log(log);
   }
 }
