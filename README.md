@@ -154,7 +154,7 @@ I recommand to add the following script to the `package.json`.
 ```json
 "scripts": {
   "start": "sls offline start",
-  "workflow": "sls step-functions-offline --stateMachine=mapReduceExample",
+  "workflow": "sls step-functions-offline --stateMachine=mapReduceExample --lambdaEndpoint http://localhost:3002",
 }
 ```
 
