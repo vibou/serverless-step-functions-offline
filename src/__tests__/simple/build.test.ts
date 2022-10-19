@@ -1,12 +1,12 @@
+import logging from './logging';
 /* istanbul ignore file */
 import setup from './setup';
-import logging from './logging';
 
 const { stepFunctionsOfflinePlugin, StepFunctionsOfflinePlugin, serverless } = setup();
 
 describe('build.js', () => {
   describe('#findFunctionsPathAndHandler()', () => {
-    stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/src/__tests__';
+    stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/src/__tests__/simple';
     it('should throw err - can not read property', async () => {
       stepFunctionsOfflinePlugin.variables = { FirstLambda: 'firstLamda' };
       await stepFunctionsOfflinePlugin.hooks[global['hooks'].findState]();
@@ -25,7 +25,7 @@ describe('build.js', () => {
         serverless,
         {
           ...global['options'],
-          location: '/src/__tests__',
+          location: '/src/__tests__/simple',
         },
         logging
       );
