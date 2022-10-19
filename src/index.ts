@@ -301,26 +301,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     throw new this.serverless.classes.Error(`stateMachine "${stateMachineName}" doesn't exist in this Service`);
   }
 
-  // findFunctionsPathAndHandler() {
-  //     for (const functionName in this.variables) {
-  //         const functionHandler = this.variables[functionName];
-  //         const {handler, filePath} = this._findFunctionPathAndHandler(functionHandler);
-  //
-  //         this.variables[functionName] = {handler, filePath};
-  //     }
-  //     console.log('this.va', this.variables)
-  // },
-  //
-  _findFunctionPathAndHandler(functionHandler: string): { handler: string; filePath: string } {
-    const dir = path.dirname(functionHandler);
-    const handler = path.basename(functionHandler);
-    const splitHandler = handler.split('.');
-    const filePath = `${dir}/${splitHandler[0]}.js`;
-    const handlerName = `${splitHandler[1]}`;
-
-    return { handler: handlerName, filePath };
-  }
-
   async _loadStates(states: StateMachine['States'] | string): Promise<StateMachine['States']> {
     if (isString(states)) {
       const serverlessPath = this.serverless.config.servicePath;
@@ -390,7 +370,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       return this._runChoice(data, event);
     } else if (!stateIsChoiceConditional(data)) {
       const callback = data.f(event);
-      console.log('callback', callback);
       return this._run(callback, event, stateName);
     }
   }

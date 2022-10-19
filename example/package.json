@@ -1,10 +1,11 @@
 {
   "name": "@vibou/map-reduce-example",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "workflow": "sls step-functions-offline -l --stateMachine=map_reduce --event='./event.json' --lambdaEndpoint http://localhost:3002",
+    "workflow": "sls step-functions-offline --lambdaEndpoint http://localhost:3002",
+    "workflow:map_reduce": "yarn workflow --stateMachine=map_reduce --event='./event_map_reduce.json'",
     "invoke:producer": "sls invoke local --stage=local -f producer --path './event.json'",
     "start": "sls offline start"
   },
