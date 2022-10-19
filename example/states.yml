@@ -1,0 +1,30 @@
+Producer:
+  Type: Task
+  Resource: arn:aws:lambda:eu-west-1:123456789:function:producer
+  ResultPath: '$.producer'
+  Next: Mapper
+
+Mapper:
+  Type: Map
+  Next: Reducer
+  ItemsPath: '$.producer.values'
+  Parameters:
+    input.$: '$.input'
+    producer.$: '$.producer'
+    item.$: '$$.Map.Item.Value'
+
+  MaxConcurrency: 10
+  ResultPath: '$.mapper'
+  Iterator:
+    StartAt: MappingFunction
+    States:
+      MappingFunction:
+        Type: Task
+        Resource: arn:aws:lambda:eu-west-1:123456789:function:mapper
+        End: true
+
+Reducer:
+  Type: Task
+  Resource: arn:aws:lambda:eu-west-1:123456789:function:reducer
+  ResultPath: '$.reducer'
+  End: true

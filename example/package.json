@@ -1,0 +1,14 @@
+{
+  "name": "@vibou/map-reduce-example",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "workflow": "sls step-functions-offline -l --stateMachine=map_reduce --event='./event.json'"
+  },
+  "devDependencies": {
+    "serverless": "^3.23.0",
+    "serverless-offline": "^11.1.3",
+    "serverless-step-functions": "^3.10.0"
+  }
+}
