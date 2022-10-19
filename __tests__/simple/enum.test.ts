@@ -1,5 +1,5 @@
 /* istanbul ignore file */
-import enums from '../../enum';
+import enums from '../../src/enum';
 
 describe('enum.js', () => {
   const supportedComparisonOperator = [

@@ -6,7 +6,7 @@ const { stepFunctionsOfflinePlugin, StepFunctionsOfflinePlugin, serverless } = s
 
 describe('build.js', () => {
   describe('#findFunctionsPathAndHandler()', () => {
-    stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/src/__tests__/simple';
+    stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/__tests__/simple';
     it('should throw err - can not read property', async () => {
       stepFunctionsOfflinePlugin.variables = { FirstLambda: 'firstLamda' };
       await stepFunctionsOfflinePlugin.hooks[global['hooks'].findState]();
@@ -25,7 +25,7 @@ describe('build.js', () => {
         serverless,
         {
           ...global['options'],
-          location: '/src/__tests__/simple',
+          location: '__tests__/simple',
         },
         logging
       );
@@ -36,10 +36,4 @@ describe('build.js', () => {
       await SFOP.hooks[global['hooks'].buildStepWorkFlow]();
     });
   });
-
-  // describe('#buildStepWorkFlow()', () => {
-  //
-  //
-  //
-  // });
 });

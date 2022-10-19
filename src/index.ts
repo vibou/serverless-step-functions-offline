@@ -510,6 +510,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   }
 
   _invokeLambdaFn(func: Serverless.FunctionDefinitionHandler) {
+    const env = _.extend(process.env, func.environment);
     return async (event): Promise<AsyncCallback> => {
       return (_, _context) => {
         const processId = v4();
@@ -518,17 +519,21 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
         fs.writeFileSync(input, JSON.stringify(event));
 
-        const cmd = spawn('aws', [
-          'lambda',
-          'invoke',
-          response,
-          '--endpoint-url',
-          this.lambdaEndpoint!,
-          '--function-name',
-          func.name!,
-          '--payload',
-          `fileb://${input}`,
-        ]);
+        const cmd = spawn(
+          'aws',
+          [
+            'lambda',
+            'invoke',
+            response,
+            '--endpoint-url',
+            this.lambdaEndpoint!,
+            '--function-name',
+            func.name!,
+            '--payload',
+            `fileb://${input}`,
+          ],
+          { env }
+        );
 
         return new Promise<Event>((r, f) => {
           cmd.on('close', code => {
@@ -567,14 +572,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       throw new Error(`Function "${stateName}" does not presented in serverless manifest`);
     }
     if (!definitionIsHandler(f)) return;
-
-    console.log('find function', f);
-
-    // const { handler, filePath } = this._findFunctionPathAndHandler(f.handler);
-    // // if function has additional variables - attach it to function
-    // if (f.environment) {
-    //   process.env = _.extend(process.env, f.environment);
-    // }
 
     return {
       name: stateName,

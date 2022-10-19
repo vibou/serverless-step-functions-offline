@@ -62,7 +62,7 @@ export default {
       s: 'foo',
       event: null,
       e: null,
-      location: './src/__tests__',
+      location: './__tests__',
       detailedLog: true,
     },
     hooks: {
