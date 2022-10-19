@@ -1,7 +1,8 @@
 /* istanbul ignore file */
 import Serverless from 'serverless';
-import { ServerlessWithError } from '../types';
-import StepFunctionsOfflinePlugin from '..';
+
+import StepFunctionsOfflinePlugin from '../../index';
+import { ServerlessWithError } from '../../types';
 import Logging from './logging';
 
 export default function setup(): {

@@ -66,13 +66,17 @@ describe('index.js', () => {
     });
 
     it('should apply event file ', async () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { e: 'src/__tests__/eventFile.json' }, logging);
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { e: 'src/__tests__/simple/eventFile.json' }, logging);
       await SFOP.hooks[global['hooks'].loadEventFile]();
       expect(SFOP.loadedEventFile).toMatchObject({ foo: 1, bar: 2 });
     });
 
     it('should throw error - incorrect path to event file ', () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '../__tests__/eventFile2.json' }, logging);
+      const SFOP = new StepFunctionsOfflinePlugin(
+        serverless,
+        { event: '../__tests__/simple/eventFile2.json' },
+        logging
+      );
       expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual(
         expect.objectContaining({ code: 'MODULE_NOT_FOUND' })
       );
@@ -95,7 +99,7 @@ describe('index.js', () => {
     });
 
     it('should throw error - incorrect path to event file ', () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '..__tests__/eventFile.json' }, logging);
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '..__tests__/simple/eventFile.json' }, logging);
       expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual(
         expect.objectContaining({ code: 'MODULE_NOT_FOUND' })
       );
@@ -104,7 +108,7 @@ describe('index.js', () => {
       it('should throw err - state does not exist', () => {
         stepFunctionsOfflinePlugin.stateMachine = undefined;
         const error = 'State Machine undefined does not exist in yaml file';
-        stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/src/__tests__';
+        stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/src/__tests__/simple';
         return stepFunctionsOfflinePlugin.hooks[global['hooks'].findState]().catch(err =>
           expect(err).toBeInstanceOf(Error)
         );
