@@ -1,17 +1,13 @@
 {
-  "name": "@beforeyoubid/serverless-step-functions-offline",
-<<<<<<< HEAD
+  "name": "@vibou/serverless-step-functions-offline",
   "version": "2.5.0",
-=======
-  "version": "3.0.0",
->>>>>>> 139e757 (Update version)
   "description": "Serverlesss plugin to support step function offline",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bugs": {
-    "url": "https://github.com/beforeyoubid/serverless-step-functions-offline/issues"
+    "url": "https://github.com/vibou/serverless-step-functions-offline/issues"
   },
-  "homepage": "https://github.com/beforeyoubid/serverless-step-functions-offline#readme",
+  "homepage": "https://github.com/vibou/serverless-step-functions-offline#readme",
   "repository": {
     "type": "git",
     "url": "git@github.com:beforeyoubid/serverless-step-functions-offline.git"
