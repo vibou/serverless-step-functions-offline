@@ -1,0 +1,11 @@
+  producer:
+    handler: ./producer.handler
+    timeout: 30
+
+  mapper:
+    handler: ./mapper.handler
+    timeout: 300
+
+  reducer:
+    handler: ./reducer.handler
+    timeout: 300
