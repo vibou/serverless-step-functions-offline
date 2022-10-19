@@ -1,4 +1,4 @@
-service: ServerlessStepPlugin
+service: aws
 
 frameworkVersion: '>=<3.15.0'
 
@@ -9,11 +9,18 @@ plugins:
 
 provider:
   name: aws
+  stage: ${opt:stage, 'local'}
   runtime: nodejs14.x
-  cfLogs: true
   region: eu-west-1
   memorySize: 128
   timeout: 3
+
+serverless-offline:
+  noPrependStageInUrl: true
+  httpPort: 3001
+
+step-functions-offline:
+  lambdaEndpoint: http://localhost:3002
 
 custom:
   stepFunctionsOffline:
