@@ -110,22 +110,18 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           lambdaEndpoint: {
             usage: 'The serverless Lambda Endpoint',
             required: true,
-            type: 'string',
           },
           stateMachine: {
             usage: 'The stage used to execute.',
             required: true,
-            type: 'string',
           },
           event: {
             usage: 'File where is values for execution in JSON format',
             shortcut: 'e',
-            type: 'string',
           },
           detailedLog: {
             usage: 'Option which enables detailed logs',
             shortcut: 'l',
-            type: 'boolean',
           },
         },
       },
@@ -463,7 +459,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
 
         const executeMapperPromise = withWorkers(
           mapItems,
-          item => {
+          async item => {
             if (!item) return;
 
             const parseValue = (value: string) => {
