@@ -29,13 +29,13 @@ custom:
     MappingFunction: mapper
 
 functions: 
-  ${file(functions.yml)}
+  ${file(sls_functions.yml)}
 
 stepFunctions:
   stateMachines:
-    map_reduce:
+    map_reduce: 
       definition: 
         Comment: 'Export a PDF document for the given dashboard'
         StartAt: Producer
-        States: ${file(states.yml)}
+        States: ${file(sls_map_reduce.yml)}
       
