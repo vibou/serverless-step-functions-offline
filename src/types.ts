@@ -1,8 +1,7 @@
+import { Choice, Map, Parallel, State, StateMachine, Task, Wait } from 'asl-types';
 import Serverless from 'serverless';
 import PluginManager from 'serverless/classes/PluginManager';
 import Service from 'serverless/classes/Service';
-
-import { StateMachine, Choice, State, Parallel, Task, Map, Wait } from 'asl-types';
 
 // from https://stackoverflow.com/a/49725198/3296811
 type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<keyof T, Keys>> &
@@ -91,6 +90,7 @@ export type ContextObject = {
 export type Options = {
   location?: Maybe<string>;
   stateMachine?: Maybe<string>;
+  lambdaEndpoint?: Maybe<string>;
   detailedLog?: boolean;
   l?: boolean;
   [key: string]: unknown;

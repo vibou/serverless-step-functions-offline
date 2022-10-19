@@ -1,13 +1,17 @@
+import { spawn } from 'child_process';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import { Choice, Fail, Map, Parallel, Pass, State, StateMachine, Succeed, Task, Wait } from 'asl-types';
 import _ from 'lodash';
 import moment from 'moment';
+import Serverless from 'serverless';
 import Plugin from 'serverless/classes/Plugin';
+import { v4 } from 'uuid';
 
 import enumList from './enum';
 import {
-  AsyncCallback,
   Branch,
   Callback,
   ChoiceConditional,
@@ -26,6 +30,7 @@ import {
   notEmpty,
   stateIsChoiceConditional,
 } from './types';
+import { AsyncCallback } from './types';
 import { withWorkers } from './worker';
 
 const delay = time => new Promise(resolve => setTimeout(resolve, time * 1000));
@@ -67,9 +72,10 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
   shouldTerminate = true;
   serverless: ServerlessWithError;
   options: Options;
-  commands: Plugin['commands'];
+  commands: Plugin.Commands;
   hooks: Plugin['hooks'];
   stateMachine: Options['stateMachine'];
+  lambdaEndpoint: Options['lambdaEndpoint'];
 
   environment = '';
 
@@ -77,9 +83,11 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     this.location = process.cwd();
     this.serverless = serverless;
     this.options = options;
+
     this.stateMachine = this.options.stateMachine;
     this.detailedLog = (this.options.detailedLog || this.options.l) ?? false;
     this.eventFile = this.options.event || this.options.e;
+    this.lambdaEndpoint = this.options.lambdaEndpoint;
     this.functions = this.serverless.service.functions;
     this.variables = this.serverless.service.custom?.stepFunctionsOffline;
     this.cliLog = this.serverless.cli.log.bind(this.serverless.cli);
@@ -99,17 +107,25 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           'exit',
         ],
         options: {
+          lambdaEndpoint: {
+            usage: 'The serverless Lambda Endpoint',
+            required: true,
+            type: 'string',
+          },
           stateMachine: {
             usage: 'The stage used to execute.',
             required: true,
+            type: 'string',
           },
           event: {
             usage: 'File where is values for execution in JSON format',
             shortcut: 'e',
+            type: 'string',
           },
           detailedLog: {
             usage: 'Option which enables detailed logs',
             shortcut: 'l',
+            type: 'boolean',
           },
         },
       },
@@ -378,6 +394,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       return this._runChoice(data, event);
     } else if (!stateIsChoiceConditional(data)) {
       const callback = data.f(event);
+      console.log('callback', callback);
       return this._run(callback, event, stateName);
     }
   }
@@ -423,6 +440,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
           } catch (error) {
             err = error;
           }
+
           return contextObject.done(err, res || {});
         });
       }
@@ -492,6 +510,53 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     };
   }
 
+  _invokeLambdaFn(func: Serverless.FunctionDefinitionHandler) {
+    return async (event): Promise<AsyncCallback> => {
+      return (_, _context) => {
+        const processId = v4();
+        const response = path.join(os.tmpdir(), `${processId}.json`);
+        const input = path.join(os.tmpdir(), `${processId}-input.json`);
+
+        fs.writeFileSync(input, JSON.stringify(event));
+
+        const cmd = spawn('aws', [
+          'lambda',
+          'invoke',
+          response,
+          '--endpoint-url',
+          this.lambdaEndpoint!,
+          '--function-name',
+          func.name!,
+          '--payload',
+          `fileb://${input}`,
+        ]);
+
+        return new Promise<Event>((r, f) => {
+          cmd.on('close', code => {
+            if (code !== 0) {
+              f(new Error('Lambda invocation failed with code ' + code));
+              return;
+            }
+
+            try {
+              const value = fs.readFileSync(response).toString();
+              try {
+                const json = JSON.parse(value || '{}');
+                r(json);
+              } catch (err) {
+                f(new Error('Fail to parse lambda response: ' + value));
+              }
+            } catch (err) {
+              f(new Error('Fail to read lambda response from file: ' + response));
+            }
+
+            return;
+          });
+        });
+      };
+    };
+  }
+
   _handleTask(currentState: Task, stateName: string): StateValueReturn {
     // just push task to general array
     //before each task restore global default env variables
@@ -503,14 +568,18 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
       throw new Error(`Function "${stateName}" does not presented in serverless manifest`);
     }
     if (!definitionIsHandler(f)) return;
-    const { handler, filePath } = this._findFunctionPathAndHandler(f.handler);
-    // if function has additional variables - attach it to function
-    if (f.environment) {
-      process.env = _.extend(process.env, f.environment);
-    }
+
+    console.log('find function', f);
+
+    // const { handler, filePath } = this._findFunctionPathAndHandler(f.handler);
+    // // if function has additional variables - attach it to function
+    // if (f.environment) {
+    //   process.env = _.extend(process.env, f.environment);
+    // }
+
     return {
       name: stateName,
-      f: () => import(path.join(this.location, filePath)).then(mod => mod[handler]),
+      f: this._invokeLambdaFn(f).bind(this),
     };
   }
 

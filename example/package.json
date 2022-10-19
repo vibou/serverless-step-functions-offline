@@ -4,7 +4,9 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "workflow": "sls step-functions-offline -l --stateMachine=map_reduce --event='./event.json'"
+    "workflow": "sls step-functions-offline -l --stateMachine=map_reduce --event='./event.json' --lambdaEndpoint http://localhost:3002",
+    "invoke:producer": "sls invoke local --stage=local -f producer --path './event.json'",
+    "start": "sls offline start"
   },
   "devDependencies": {
     "serverless": "^3.23.0",

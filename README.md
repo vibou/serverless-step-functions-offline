@@ -21,13 +21,13 @@
 Using NPM:
 
 ```bash
-npm install @vibou/serverless-step-functions-offline serverless-step-functions --save-dev
+npm install @vibou/serverless-step-functions-offline serverless-step-functions serverless-offline serverless --save-dev
 ```
 
 or Yarn:
 
 ```bash
-yarn add @vibou/serverless-step-functions-offline serverless-step-functions --dev
+yarn add @vibou/serverless-step-functions-offline serverless-step-functions serverless-offline serverless --dev
 ```
 
 # Setup
@@ -38,6 +38,7 @@ Add the plugin to your `serverless.yml`:
 # serverless.yml
 
 plugins:
+  - serverless-offline
   - serverless-step-functions
   - '@vibou/serverless-step-functions-offline'
 ```
@@ -55,9 +56,17 @@ It should rise an error like that:
 
 # Requirements
 
-This plugin works only with [serverless-step-functions](https://github.com/horike37/serverless-step-functions).
+This plugin uses the power of `serverless-offline` and `awscli` to run the lambda within the step function. The plugin
+can be used with any kind of serverless-offline runtime compatible lambda.
 
-You must have this plugin installed and correctly specified statemachine definition using Amazon States Language.
+This plugin works only with:
+
+- [serverless-step-functions](https://github.com/horike37/serverless-step-functions).
+- [serverless-offline](https://github.com/horike37/serverless-offline).
+- [install aws cli](https://aws.amazon.com/cli/)
+
+You must have this plugin installed and correctly specified statemachine definition using Amazon States Language. You
+need the
 
 Example of statemachine definition you can see [here](https://github.com/horike37/serverless-step-functions#setup).
 
@@ -144,11 +153,22 @@ I recommand to add the following script to the `package.json`.
 
 ```json
 "scripts": {
+  "start": "sls offline start",
   "workflow": "sls step-functions-offline --stateMachine=mapReduceExample",
 }
 ```
 
-And run the command: `yarn workflow --event=<input.json>`
+You need to start a serverless server in one terminal:
+
+```shell
+yarn start
+```
+
+And start a workflow execution by using the following command:
+
+```shell
+yarn workflow --event=<input.json>
+```
 
 ## Run the workflow using the AWS-SDK from a lambda function
 

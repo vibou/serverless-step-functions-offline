@@ -6,5 +6,8 @@
   "extends": ["plugin:@typescript-eslint/recommended", "plugin:prettier/recommended"],
   "env": {
     "es6": true
+  },
+  "rules": {
+    "@typescript-eslint/no-non-null-assertion": 0
   }
 }
