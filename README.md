@@ -7,7 +7,7 @@
   </a>
   <img src="https://img.shields.io/node/v/serverless-offline.svg?style=flat-square">
   <a href="https://github.com/vibou/serverless-step-functions-offline#readme">
-    <img src="https://img.shields.io/badge/dependencies-serverless%20%5E2.53.1-yellow">
+    <img src="https://img.shields.io/badge/dependencies-serverless%20%5E3.23.0-yellow">
   </a>
 </p>
 
