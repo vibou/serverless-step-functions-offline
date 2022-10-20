@@ -1,5 +1,15 @@
-[![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
-[![Maintainability](https://api.codeclimate.com/v1/badges/b321644ef368976aee12/maintainability)](https://codeclimate.com/github/vibou/serverless-step-functions-offline/maintainability)
+<p>
+  <a href="https://github.com/vibou/serverless-step-functions-offline#readme">
+    <img src="http://public.serverless.com/badges/v2.svg">
+  </a>
+  <a href="https://github.com/vibou/serverless-step-functions-offline#readme">
+    <img src="https://img.shields.io/github/workflow/status/dherault/serverless-offline/Integrate">
+  </a>
+  <img src="https://img.shields.io/node/v/serverless-offline.svg?style=flat-square">
+  <a href="https://github.com/vibou/serverless-step-functions-offline#readme">
+    <img src="https://img.shields.io/badge/dependencies-serverless%20%5E2.53.1-yellow">
+  </a>
+</p>
 
 [![NPM](https://nodei.co/npm/@vibou/serverless-step-functions-offline.png)](https://nodei.co/npm/@vibou/serverless-step-functions-offline/)
 
