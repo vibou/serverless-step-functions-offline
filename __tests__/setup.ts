@@ -1,7 +1,8 @@
+import CLI from 'serverless/lib/classes/CLI';
 /* istanbul ignore file */
 import Serverless from 'serverless/lib/Serverless';
-import CLI from 'serverless/lib/classes/CLI';
-import { ServerlessWithError } from '../types';
+
+import { ServerlessWithError } from '../src/types';
 import StepFunctionsOfflinePlugin from '..';
 
 export default function setup(): {

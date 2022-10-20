@@ -1,6 +1,6 @@
 {
   "name": "@vibou/serverless-step-functions-offline",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Serverlesss plugin to support step function offline",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -23,8 +23,8 @@
     "build:watch": "rm -Rf dist && babel src/*.ts --watch --out-dir dist --extensions \".ts,.tsx\" --source-maps inline"
   },
   "dependencies": {
+    "dayjs": "^1.11.5",
     "lodash": "^4.17.15",
-    "moment": "2.29.3",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

@@ -4,8 +4,8 @@ import os from 'os';
 import path from 'path';
 
 import { Choice, Fail, Map, Parallel, Pass, State, StateMachine, Succeed, Task, Wait } from 'asl-types';
+import dayjs from 'dayjs';
 import _ from 'lodash';
-import moment from 'moment';
 import Serverless from 'serverless';
 import Plugin from 'serverless/classes/Plugin';
 import { v4 } from 'uuid';
@@ -544,8 +544,6 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     }
     if (!definitionIsHandler(f)) return;
 
-    console.log('find function', f);
-
     // const { handler, filePath } = this._findFunctionPathAndHandler(f.handler);
     // // if function has additional variables - attach it to function
     // if (f.environment) {
@@ -715,7 +713,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
     let waitTimer = 0,
       targetTime,
       timeDiff;
-    const currentTime = moment();
+    const currentTime = dayjs();
     const waitListKeys = ['Seconds', 'Timestamp', 'TimestampPath', 'SecondsPath'];
     const waitField = _.omit(currentState, 'Type', 'Next', 'Result');
     const waitKey = Object.keys(waitField)[0];
@@ -728,7 +726,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
         waitTimer = waitField['Seconds'];
         break;
       case 'Timestamp':
-        targetTime = moment(waitField['Timestamp']);
+        targetTime = dayjs(waitField['Timestamp']);
         timeDiff = targetTime.diff(currentTime, 'seconds');
         if (timeDiff > 0) waitTimer = timeDiff;
         break;
@@ -739,7 +737,7 @@ export default class StepFunctionsOfflinePlugin implements Plugin {
                      The TimestampPath parameter does not reference an input value: ${waitField['TimestampPath']}`;
           throw new this.serverless.classes.Error(error);
         }
-        targetTime = moment(event[timestampPath]);
+        targetTime = dayjs(event[timestampPath]);
         timeDiff = targetTime.diff(currentTime, 'seconds');
         if (timeDiff > 0) waitTimer = timeDiff;
         break;

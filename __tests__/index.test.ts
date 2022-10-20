@@ -65,13 +65,13 @@ describe('index.js', () => {
     });
 
     it('should apply event file ', async () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { e: 'src/__tests__/eventFile.json' });
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { e: '__tests__/eventFile.json' });
       await SFOP.hooks[global['hooks'].loadEventFile]();
       expect(SFOP.loadedEventFile).toMatchObject({ foo: 1, bar: 2 });
     });
 
     it('should throw error - incorrect path to event file ', () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '../__tests__/eventFile2.json' });
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '__tests__/eventFile2.json' });
       expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual({ error: /Cannot find module/ });
     });
   });
@@ -92,14 +92,14 @@ describe('index.js', () => {
     });
 
     it('should throw error - incorrect path to event file ', () => {
-      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '..__tests__/eventFile.json' });
+      const SFOP = new StepFunctionsOfflinePlugin(serverless, { event: '__tests__/eventFile.json' });
       expect(SFOP.hooks[global['hooks'].loadEventFile]).rejects.toEqual({ error: /Cannot find module/ });
     });
     describe('trying to load serverless file', () => {
       it('should throw err - state does not exist', () => {
         stepFunctionsOfflinePlugin.stateMachine = undefined;
         const error = 'State Machine undefined does not exist in yaml file';
-        stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/src/__tests__';
+        stepFunctionsOfflinePlugin.serverless.config.servicePath = process.cwd() + '/__tests__';
         return stepFunctionsOfflinePlugin.hooks[global['hooks'].findState]().catch(err =>
           expect(err).toBeInstanceOf(Error)
         );
