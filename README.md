@@ -11,9 +11,6 @@
   </a>
 </p>
 
-[![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
-[![Maintainability](https://api.codeclimate.com/v1/badges/b321644ef368976aee12/maintainability)](https://codeclimate.com/github/vibou/serverless-step-functions-offline/maintainability)
-
 [![NPM](https://nodei.co/npm/@vibou/serverless-step-functions-offline.png)](https://nodei.co/npm/@vibou/serverless-step-functions-offline/)
 
 ## Documentation
