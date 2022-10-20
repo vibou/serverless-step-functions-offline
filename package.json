@@ -10,7 +10,7 @@
   "homepage": "https://github.com/vibou/serverless-step-functions-offline#readme",
   "repository": {
     "type": "git",
-    "url": "git@github.com:beforeyoubid/serverless-step-functions-offline.git"
+    "url": "git@github.com:vibou/serverless-step-functions-offline.git"
   },
   "scripts": {
     "test": "jest --coverage",
